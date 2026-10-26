@@ -1,0 +1,7 @@
+services:
+  evaluador:
+    build: .
+    image: evaluador-semantico
+    ports:
+      - "${PUERTO:-8765}:8765"   # cambiar con: PUERTO=9000 docker compose up
+    restart: unless-stopped

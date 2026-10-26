@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Evaluador semántico · MM3032</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232f5bd3'/><text x='16' y='23' font-size='20' text-anchor='middle' fill='white' font-family='serif'>∀</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/static/estilo.css">
+</head>
+<body>
+  <header class="barra">
+    <div>
+      <h1>Evaluador semántico</h1>
+      <p class="sub">MM3032 Lógica Matemática · Universidad del Valle de Guatemala</p>
+    </div>
+    <div class="acciones">
+      <button id="btn-ejemplo" class="secundario">Cargar ejemplo</button>
+      <button id="btn-limpiar" class="secundario">Limpiar todo</button>
+    </div>
+  </header>
+
+  <main class="rejilla">
+    <div class="columna">
+      <section class="tarjeta" aria-labelledby="h-lenguaje">
+        <h2 id="h-lenguaje"><span class="num">1</span>Lenguaje</h2>
+        <p class="ayuda">Declare los símbolos funcionales (aridad 0 = constante) y los predicados. Todo identificador no declarado se interpreta como variable.</p>
+        <div class="tabla-scroll">
+          <table class="simbolos">
+            <thead><tr><th>Nombre</th><th>Tipo</th><th>Aridad</th><th><span class="sr">Quitar</span></th></tr></thead>
+            <tbody id="tabla-simbolos"></tbody>
+          </table>
+        </div>
+        <button id="btn-agregar-simbolo" class="secundario">+ Agregar símbolo</button>
+        <ul class="errores" id="err-lenguaje"></ul>
+      </section>
+
+      <section class="tarjeta" aria-labelledby="h-interp">
+        <h2 id="h-interp"><span class="num">2</span>Interpretación</h2>
+        <label class="etiqueta" for="dominio">Dominio 𝒟 (elementos separados por comas)</label>
+        <input id="dominio" class="campo mono" placeholder="0, 1, 2" autocomplete="off" spellcheck="false">
+        <div id="tablas" class="tablas"></div>
+        <ul class="errores" id="err-interpretacion"></ul>
+      </section>
+    </div>
+
+    <div class="columna">
+      <section class="tarjeta" aria-labelledby="h-formula">
+        <h2 id="h-formula"><span class="num">3</span>Fórmula y entorno</h2>
+        <label class="etiqueta" for="formula">Fórmula</label>
+        <input id="formula" class="campo formula" placeholder="∀x (P(x) → ∃y R(x, y))" autocomplete="off" spellcheck="false">
+        <div class="teclado" id="teclado" aria-label="Símbolos lógicos">
+          <button data-ins="¬" title="Negación (teclado: ~ o !)">¬</button>
+          <button data-ins=" ∧ " title="Conjunción (teclado: & o /\)">∧</button>
+          <button data-ins=" ∨ " title="Disyunción (teclado: | o \/)">∨</button>
+          <button data-ins=" → " title="Implicación (teclado: ->)">→</button>
+          <button data-ins="∀" title="Para todo (teclado: forall)">∀</button>
+          <button data-ins="∃" title="Existe (teclado: exists)">∃</button>
+          <button data-ins=" = " title="Igualdad">=</button>
+          <button data-ins="(" title="Paréntesis izquierdo">(</button>
+          <button data-ins=")" title="Paréntesis derecho">)</button>
+          <button data-accion="borrar" title="Borrar un carácter" class="borrar">⌫</button>
+        </div>
+        <p class="ayuda">Desde el teclado: <code>~</code> para ¬, <code>&amp;</code> para ∧, <code>|</code> para ∨, <code>-&gt;</code> para →, <code>forall</code> y <code>exists</code>. Las fórmulas binarias van entre paréntesis: <code>(φ ∧ ψ)</code>.</p>
+        <div id="estado-formula" class="estado" aria-live="polite"></div>
+        <div id="entorno" class="entorno"></div>
+        <button id="btn-evaluar" class="primario">Evaluar</button>
+        <ul class="errores" id="err-formula"></ul>
+      </section>
+
+      <section class="tarjeta resultado" aria-labelledby="h-resultado">
+        <h2 id="h-resultado">Resultado</h2>
+        <div id="resultado" aria-live="polite">
+          <p class="vacio">Cuando evalúe una fórmula verá aquí si es Verdadera o Falsa y el árbol con las razones decisivas.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="pie">Equipo: David Lopez · Carlos Lopez · Natanael</footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>
