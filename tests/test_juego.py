@@ -13,6 +13,7 @@ from evaluador.juego import (
     practicar, previsualizar, terminar_turno,
 )
 from evaluador.juego.formulas import analizar_formula
+from evaluador.juego.niveles import ORDEN_POR_VECINO, ORDEN_UNICO, RETO_UNIVERSAL
 from evaluador.juego.mundo import _interpretacion
 from evaluador.juego.reglas import posiciones_alcanzables
 from evaluador.juego.tipos import LENGUAJE
@@ -279,18 +280,24 @@ class TutorialTest(unittest.TestCase):
             estado = crear_estado("tutorial", nivel=nivel["id"])
             original = deepcopy(estado)
             _validar_estado_completo(estado)
-            self.assertEqual([p["tipo"] for p in nivel["pasos"]],
-                             ["explicacion", "ejemplo", "practica", "reto"])
+            self.assertEqual(nivel["pasos"][-1]["tipo"], "reto")
+            self.assertTrue(1 <= sum(p["tipo"] == "practica" for p in nivel["pasos"]) <= 3)
             for indice, paso in enumerate(nivel["pasos"]):
+                escenario = paso["estado"]
+                _validar_estado_completo(escenario)
+                self.assertEqual(escenario, crear_estado("tutorial", nivel=nivel["id"], paso=indice))
                 if paso["tipo"] == "ejemplo":
-                    vista = previsualizar(estado, "A1", paso["formula"])
+                    vista = previsualizar(escenario, "A1", paso["formula"])
                     self.assertEqual(vista["lectura"], paso["lectura"])
+                    self.assertEqual(golpea(escenario, paso["formula"]), set(paso["objetivo"]))
                     self.assertTrue(all("arbol" in o for o in vista["objetivos"]))
                 if paso["tipo"] in ("practica", "reto"):
-                    self.assertEqual(len(nivel["pasos"][2]["pistas"]), 3)
+                    if paso["tipo"] == "practica":
+                        self.assertEqual(len(paso["pistas"]), 3)
                     resultado = practicar(estado, nivel["id"], indice, paso["solucion"])
                     self.assertTrue(resultado["acierto"], (nivel["id"], resultado))
                     self.assertEqual(resultado["golpea"], paso["objetivo"])
+                    self.assertEqual(resultado["estado"], escenario)
             self.assertEqual(estado, original)
             resultado = atacar(estado, "A1", nivel["solucion_ejemplo"])
             self.assertTrue(resultado["estado"]["nivel_completado"])
@@ -320,14 +327,14 @@ class TutorialTest(unittest.TestCase):
 
     def test_vocabulario_restringido_incluye_igualdad_y_constante(self):
         """No se pueden colar igualdad, constantes, predicados ni conectivos no declarados."""
-        for formula in ["x=x", "Cerca(x,yo)", "(Herido(x) & Infante(x))", "Enemigo(x)"]:
+        for formula in ["x=x", "Cerca(x,yo)", "(Herido(x) | Tanque(x))", "Mio(x)"]:
             with self.assertRaisesRegex(ErrorValidacion, "no permite"):
                 previsualizar(crear_estado("tutorial", nivel=5), "A1", formula)
 
     def test_fallo_explicito_y_estado_valido_sin_objetivos_muertos(self):
         """Un ataque incorrecto termina el intento aunque elimine a los objetivos."""
         estado = crear_estado("tutorial", nivel=3)
-        resultado = atacar(estado, "A1", "Enemigo(x)")
+        resultado = atacar(estado, "A1", "(Enemigo(x) & Enemigo(x))")
         self.assertTrue(resultado["estado"]["nivel_fallido"])
         self.assertEqual(resultado["sobran"], ["R2", "R3"])
         self.assertEqual(resultado["faltan"], [])
@@ -343,49 +350,157 @@ class TutorialTest(unittest.TestCase):
         """La práctica distingue fuego amigo y omisiones, incluso con cero energía."""
         estado = crear_estado("tutorial", nivel=3)
         estado["energia"]["azul"] = 0
-        resultado = practicar(estado, 3, 2, "Arquero(x)")
-        self.assertEqual(resultado["sobran"], ["A2"])
+        resultado = practicar(estado, 3, 3, "Tanque(x)")
+        self.assertEqual(resultado["sobran"], ["A4"])
         self.assertIn("tu equipo", resultado["mensaje"])
         self.assertIn("Enemigo", resultado["mensaje"])
-        resultado = practicar(crear_estado("tutorial", nivel=2), 2, 2, "Herido(x)")
-        self.assertEqual(resultado["faltan"], ["R1"])
+        resultado = practicar(crear_estado("tutorial", nivel=2), 2, 4, "Arquero(x)")
+        self.assertEqual(resultado["faltan"], ["R4"])
         self.assertIn("Faltó", resultado["mensaje"])
 
     def test_testigo_existe_no_es_el_objetivo(self):
-        """La relación irreflexiva exige un vecino distinto, fuera del alcance."""
+        """La negación de existe rechaza al enemigo con un compañero nuestro cerca."""
         estado = crear_estado("tutorial", nivel=7)
         relaciones = _interpretacion(estado, "azul", "A1").relaciones
         self.assertNotIn(("R1", "R1"), relaciones["Cerca"])
-        self.assertIn(("R1", "R3"), relaciones["Cerca"])
+        self.assertIn(("R2", "A2"), relaciones["Cerca"])
         vista = previsualizar(estado, "A1", niveles()[7]["solucion_ejemplo"])
-        self.assertFalse(next(o for o in vista["objetivos"] if o["id"] == "R3")["en_alcance"])
+        self.assertTrue(next(o for o in vista["objetivos"] if o["id"] == "R1")["afectado"])
+        self.assertFalse(next(o for o in vista["objetivos"] if o["id"] == "R2")["afectado"])
+        positiva = "exists y (Mio(y) & Cerca(x,y))"
+        self.assertIn("R2", golpea(estado, positiva))
+        self.assertNotIn("R1", golpea(estado, positiva))
 
     def test_orden_cuantificadores_y_contraejemplo(self):
         """La anidación permite testigos distintos; invertirla cambia la selección."""
         estado = crear_estado("tutorial", nivel=8)
         self.assertEqual(golpea(estado, niveles()[8]["solucion_ejemplo"]), {"R1"})
-        inversa = "exists z forall y (Alineado(x,y) | Cerca(y,z))"
+        inversa = "(Enemigo(x) & " + ORDEN_UNICO + ")"
         self.assertNotEqual(golpea(estado, inversa), {"R1"})
         vista = previsualizar(estado, "A1", niveles()[8]["solucion_ejemplo"])
         r2 = next(o for o in vista["objetivos"] if o["id"] == "R2")
-        self.assertEqual(r2["arbol"]["tipo"], "contraejemplo")
+        pendientes = [r2["arbol"]]
+        tipos = []
+        while pendientes:
+            nodo = pendientes.pop()
+            tipos.append(nodo["tipo"])
+            pendientes.extend(nodo["hijos"])
+        self.assertIn("contraejemplo", tipos)
+        self.assertEqual(vista["costo"], 8)
+        self.assertEqual(previsualizar(estado, "A1", inversa)["costo"], 8)
 
     def test_lectura_completa(self):
-        """La lectura cubre tipos, conectivos, cuantificadores, igualdad, yo y anidación."""
+        """Compara frases completas para detectar contracciones y cuantificadores poco naturales."""
         casos = [
-            ("(Enemigo(x) & ~Tanque(x))", ["enemigo", "y", "no es tanque"]),
-            ("(Mio(x) | Herido(x))", ["tu equipo", "o", "herido"]),
-            ("(Herido(x) -> Infante(x))", ["si", "entonces", "infante"]),
-            ("exists y (Cerca(x,y) & Mio(y))", ["existe al menos un y", "cerca", "tu equipo"]),
-            ("forall y exists z Alineado(y,z)", ["para todo y", "existe al menos un z", "alineado"]),
-            ("x=yo", ["x", "mismo soldado", "atacante"]),
-            ("~(Arquero(x) | Medico(x))", ["no se cumple", "arquero", "médico"]),
-            ("EnAgua(x)", ["agua"]),
+            ("(Enemigo(x) & ~Tanque(x))", "(x es enemigo) y (x no es tanque)"),
+            ("(Mio(x) | Herido(x))", "(x es de tu equipo) o (x está herido)"),
+            ("(Herido(x) -> Infante(x))", "si (x está herido), entonces (x es infante)"),
+            ("Cerca(x,yo)", "x está cerca del atacante"),
+            ("~Cerca(x,yo)", "x no está cerca del atacante"),
+            ("Alineado(x,yo)", "x está alineado con el atacante"),
+            ("exists y (Cerca(x,y) & Mio(y))",
+             "existe algún soldado y para el que ((x está cerca de y) y (y es de tu equipo))"),
+            ("forall y exists z Alineado(y,z)",
+             "para cada soldado y, se cumple "
+             "(existe algún soldado z para el que (y está alineado con z))"),
+            ("x=yo", "x es el mismo soldado que el atacante"),
+            ("~(Arquero(x) | Medico(x))", "no se cumple que ((x es arquero) o (x es médico))"),
+            ("EnAgua(x)", "x está en el agua"),
         ]
-        for formula, fragmentos in casos:
-            lectura = leer_formula(formula)
-            for fragmento in fragmentos:
-                self.assertIn(fragmento, lectura)
+        for formula, esperada in casos:
+            self.assertEqual(leer_formula(formula), esperada)
+
+    def test_progresion_sin_revelar_solucion_del_reto(self):
+        """Cada práctica y ejemplo cambia la meta y el encuentro sin adelantar la respuesta final."""
+        for nivel in niveles():
+            reto = nivel["pasos"][-1]
+            metas = []
+            solucion = analizar(nivel["solucion_ejemplo"], LENGUAJE)
+            for paso in nivel["pasos"][:-1]:
+                texto = json.dumps(paso, ensure_ascii=False)
+                self.assertNotIn(nivel["solucion_ejemplo"], texto, nivel["id"])
+                for campo in ("formula", "solucion"):
+                    if campo in paso:
+                        self.assertNotEqual(analizar(paso[campo], LENGUAJE), solucion, nivel["id"])
+                if paso["tipo"] in ("practica", "ejemplo"):
+                    self.assertNotEqual(paso["objetivo"], reto["objetivo"], nivel["id"])
+                    self.assertNotEqual(paso["estado"]["unidades"], reto["estado"]["unidades"])
+                if paso["tipo"] == "practica":
+                    self.assertNotIn(paso["objetivo"], metas)
+                    metas.append(paso["objetivo"])
+
+    def test_movimiento_bloqueado_y_concepto_obligatorio(self):
+        """El atajo de mover A2 y A1 falla y copiar un predicado no basta en el reto de conjunción."""
+        estado = crear_estado("tutorial", nivel=3)
+        original = deepcopy(estado)
+        for unidad_id, destino in [("A2", [1, 0]), ("A1", [1, 6])]:
+            with self.assertRaisesRegex(ErrorValidacion, "posiciones están fijas"):
+                mover(estado, unidad_id, destino)
+        with self.assertRaisesRegex(ErrorValidacion, "símbolo nuevo"):
+            atacar(estado, "A1", "Arquero(x)")
+        self.assertEqual(estado, original)
+        for nivel in niveles():
+            # Siempre existe al menos un átomo permitido que omite el símbolo nuevo.
+            predicado = next(p for p in nivel["predicados_permitidos"]
+                             if p != "yo" and p != nivel["simbolo_nuevo"])
+            argumentos = "x,x" if LENGUAJE.predicados[predicado] == 2 else "x"
+            with self.assertRaisesRegex(ErrorValidacion, "símbolo nuevo"):
+                atacar(crear_estado("tutorial", nivel=nivel["id"]), "A1", predicado + f"({argumentos})")
+        with self.assertRaisesRegex(ErrorValidacion, "paso guiado"):
+            atacar(crear_estado("tutorial", nivel=3, paso=2), "A1", "(Mio(x) & Arquero(x))")
+
+    def test_cumplir_alcance_umbral_herido_y_bando(self):
+        """Separa verdad y alcance; media vida no es Herido y el bando depende del turno."""
+        estado = crear_estado("tutorial", nivel=0)
+        objetivos = previsualizar(estado, "A1", "Enemigo(x)")["objetivos"]
+        fuera = next(o for o in objetivos if o["id"] == "R2")
+        self.assertTrue(fuera["cumple"])
+        self.assertFalse(fuera["en_alcance"])
+        self.assertFalse(fuera["afectado"])
+        estado = niveles()[0]["pasos"][1]["estado"]
+        yo = previsualizar(estado, "A1", "Mio(x)")["objetivos"][0]
+        self.assertTrue(yo["cumple"])
+        self.assertFalse(yo["afectado"])
+        estado = niveles()[2]["pasos"][1]["estado"]
+        objetivos = {o["id"]: o for o in previsualizar(estado, "A1", "Herido(x)")["objetivos"]}
+        self.assertFalse(objetivos["R2"]["cumple"])  # Vida completa: 16/16.
+        self.assertFalse(objetivos["R3"]["cumple"])  # Exactamente la mitad: 5/10.
+        self.assertTrue(objetivos["A2"]["cumple"])  # Menos de la mitad: 2/7.
+        azul = _interpretacion(estado, "azul", "A1").relaciones
+        rojo = _interpretacion(estado, "rojo", "R2").relaciones
+        self.assertEqual(azul["Mio"], rojo["Enemigo"])
+        self.assertEqual(azul["Enemigo"], rojo["Mio"])
+
+    def test_tabla_implicacion_y_objetivo_tactico(self):
+        """La condición falsa acepta al infante enemigo sin incluir al infante aliado."""
+        nivel = niveles()[5]
+        self.assertEqual([fila["resultado"] for fila in nivel["tabla_verdad"]],
+                         [True, True, False, True])
+        estado = crear_estado("tutorial", nivel=5)
+        self.assertEqual(golpea(estado, nivel["solucion_ejemplo"]), {"R1", "R2"})
+        self.assertEqual(golpea(estado, "(Tanque(x) -> Herido(x))"), {"A2", "R1", "R2"})
+
+    def test_comparacion_guiada_mismo_tablero_y_costo(self):
+        """Los dos órdenes comparten escenario y costo; el universal sencillo señala un aliado lejano."""
+        nivel = niveles()[8]
+        ejemplos = [p for p in nivel["pasos"] if p["tipo"] == "ejemplo"]
+        simple, por_vecino, unico = ejemplos
+        self.assertEqual(por_vecino["estado"]["unidades"], unico["estado"]["unidades"])
+        primero = previsualizar(por_vecino["estado"], "A1", ORDEN_POR_VECINO)
+        segundo = previsualizar(unico["estado"], "A1", ORDEN_UNICO)
+        self.assertEqual(primero["costo"], segundo["costo"])
+        self.assertNotEqual(por_vecino["objetivo"], unico["objetivo"])
+        vista = previsualizar(simple["estado"], "A1", simple["formula"])
+        soldado = next(o for o in vista["objetivos"] if o["id"] == "R4")
+        self.assertEqual(soldado["arbol"]["tipo"], "contraejemplo")
+        self.assertIn("A1", soldado["arbol"]["hijos"][-1]["asignacion"])
+        reto = crear_estado("tutorial", nivel=8)
+        relaciones = _interpretacion(reto, "azul", "A1").relaciones
+        for vecino, vigilante in [("R2", "A2"), ("R3", "A3")]:
+            self.assertIn(("R1", vecino), relaciones["Cerca"])
+            self.assertIn((vecino, vigilante), relaciones["Cerca"])
+            self.assertNotIn((vecino, "R1"), {(a, b) for a, b in relaciones["Cerca"]
+                                            if (b,) in relaciones["Mio"]})
 
 
 class RutasJuegoTest(unittest.TestCase):
@@ -401,7 +516,7 @@ class RutasJuegoTest(unittest.TestCase):
         self.assertEqual(len(lecciones), 9)
         estado = self.cliente.post("/api/juego/nueva", json={"modo": "tutorial", "nivel": 3}).json["estado"]
         practica = self.cliente.post("/api/juego/practicar", json={
-            "estado": estado, "nivel": 3, "paso": 2, "formula": lecciones[3]["solucion_ejemplo"],
+            "estado": estado, "nivel": 3, "paso": 2, "formula": lecciones[3]["pasos"][2]["solucion"],
         }).json
         self.assertTrue(practica["acierto"])
         self.assertTrue({"golpea", "sobran", "faltan", "mensaje", "lectura"} <= practica.keys())
@@ -418,6 +533,25 @@ class RutasJuegoTest(unittest.TestCase):
         pagina = self.cliente.get("/juego")
         self.assertEqual(pagina.status_code, 200)
         pagina.close()
+
+    def test_escenarios_por_paso_y_atajos_rechazados_por_http(self):
+        """El cliente puede cargar cualquier paso y el motor rechaza movimiento y atajos de fórmula."""
+        for nivel in niveles():
+            for indice, paso in enumerate(nivel["pasos"]):
+                respuesta = self.cliente.post("/api/juego/nueva", json={
+                    "modo": "tutorial", "nivel": nivel["id"], "paso": indice,
+                }).json
+                self.assertTrue(respuesta["ok"])
+                self.assertEqual(respuesta["estado"], paso["estado"])
+        estado = crear_estado("tutorial", nivel=3)
+        for ruta, campos in [("mover", {"unidad": "A2", "destino": [1, 0]}),
+                             ("atacar", {"atacante": "A1", "formula": "Arquero(x)"})]:
+            respuesta = self.cliente.post("/api/juego/" + ruta, json={"estado": estado, **campos})
+            self.assertFalse(respuesta.json["ok"])
+        for paso in (-1, 999, True, [], "2"):
+            respuesta = self.cliente.post("/api/juego/nueva",
+                                          json={"modo": "tutorial", "nivel": 3, "paso": paso})
+            self.assertFalse(respuesta.json["ok"])
 
     def test_cuerpos_raros_en_todas_las_rutas(self):
         """Cada ruta POST rechaza cuerpos no objeto, campos raros y JSON malformado."""

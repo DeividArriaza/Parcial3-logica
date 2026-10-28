@@ -127,7 +127,8 @@ def api_juego_nueva():
         dificultad = _campo_juego(datos, "dificultad", dict, requerido=False)
         nivel = _campo_juego(datos, "nivel", int, requerido=False)
         semilla = _campo_juego(datos, "semilla", int, requerido=False)
-        return jsonify(ok=True, estado=crear_estado(modo, dificultad, nivel, semilla))
+        paso = _campo_juego(datos, "paso", int, requerido=False)
+        return jsonify(ok=True, estado=crear_estado(modo, dificultad, nivel, semilla, paso))
     except ErrorValidacion as e:
         return jsonify(ok=False, errores=_errores("juego", e))
 

@@ -1,5 +1,5 @@
 """Práctica sin efectos y retroalimentación de conjuntos exactos."""
-from .formulas import _evaluar_objetivos
+from .formulas import _evaluar_objetivos, exigir_concepto
 from .lectura import leer_formula
 from .mundo import _unidad
 from .niveles import datos_nivel
@@ -41,7 +41,13 @@ def practicar(estado: dict, nivel: int, paso: int, formula: str) -> dict:
     datos = pasos[paso]
     if datos["tipo"] not in ("practica", "reto"):
         _problema("Este paso no es una práctica ni un reto")
-    atacante = _unidad(estado, "A1")
-    ast, _, _, afectados = _evaluar_objetivos(estado, atacante, formula)
-    respuesta = retroalimentacion(estado, [o["id"] for o in afectados], datos["objetivo"])
-    return {"ok": True, **respuesta, "lectura": leer_formula(ast)}
+    from .partida import crear_estado
+
+    escenario = crear_estado("tutorial", nivel=nivel, paso=paso)
+    atacante = _unidad(escenario, "A1")
+    ast, _, objetivos, afectados = _evaluar_objetivos(escenario, atacante, formula)
+    if datos["tipo"] == "reto":
+        exigir_concepto(escenario, ast)
+    respuesta = retroalimentacion(escenario, [o["id"] for o in afectados], datos["objetivo"])
+    return {"ok": True, **respuesta, "lectura": leer_formula(ast),
+            "estado": escenario, "objetivos": objetivos}

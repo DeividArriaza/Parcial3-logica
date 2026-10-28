@@ -130,7 +130,11 @@ def _validar_tutorial(estado: dict) -> None:
     numero = estado.get("nivel")
     if type(numero) is not int or numero not in range(9):
         _problema("El nivel tutorial debe estar entre 0 y 8")
-    if estado.get("objetivos_nivel") != datos_nivel(numero)["objetivos"]:
+    datos = datos_nivel(numero)
+    paso = estado.get("paso_tutorial", len(datos["pasos"]) - 1)
+    if type(paso) is not int or not 0 <= paso < len(datos["pasos"]):
+        _problema("El paso del estado no corresponde a la lección")
+    if estado.get("objetivos_nivel") != datos["pasos"][paso].get("objetivo", []):
         _problema("Los objetivos no corresponden a la lección")
     for campo in ("nivel_completado", "nivel_fallido"):
         defecto = None if campo == "nivel_completado" else False

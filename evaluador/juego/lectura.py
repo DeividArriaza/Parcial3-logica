@@ -28,6 +28,8 @@ def _predicado(ast, negado=False) -> str:
     if ast.nombre in propiedades:
         return f"{sujeto} {no}{propiedades[ast.nombre]}"
     relacion = "está cerca de" if ast.nombre == "Cerca" else "está alineado con"
+    if ast.nombre == "Cerca" and sujetos[1] == "el atacante":
+        return f"{sujeto} {no}está cerca del atacante"
     return f"{sujeto} {no}{relacion} {sujetos[1]}"
 
 
@@ -48,8 +50,9 @@ def _leer(ast) -> str:
         enlace = "y" if ast.conectivo == "∧" else "o"
         return f"({izquierda}) {enlace} ({derecha})"
     if isinstance(ast, Cuantificador):
-        inicio = "existe al menos un" if ast.cuantificador == "∃" else "para todo"
-        return f"{inicio} {ast.variable}, tal que ({_leer(ast.cuerpo)})"
+        if ast.cuantificador == "∃":
+            return f"existe algún soldado {ast.variable} para el que ({_leer(ast.cuerpo)})"
+        return f"para cada soldado {ast.variable}, se cumple ({_leer(ast.cuerpo)})"
     _problema("No se puede leer este nodo de fórmula", Categoria.SINTAXIS)
 
 

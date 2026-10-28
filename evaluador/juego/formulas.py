@@ -59,6 +59,19 @@ def _simbolos_termino(termino) -> set[str]:
     return set()
 
 
+def exigir_concepto(estado: dict, ast) -> None:
+    """Exige el símbolo que enseña el reto, aunque una selección accidental coincida."""
+    if estado.get("modo") != "tutorial":
+        return
+    datos = datos_nivel(estado["nivel"])
+    paso = estado.get("paso_tutorial", len(datos["pasos"]) - 1)
+    if datos["pasos"][paso]["tipo"] != "reto":
+        _problema("Este es un paso guiado: usa Comprobar y reserva el ataque real para el reto")
+    if datos["simbolo_nuevo"] not in _simbolos_ast(ast):
+        _problema("En este reto debes usar el símbolo nuevo: " + datos["simbolo_nuevo"],
+                  Categoria.SIMBOLO)
+
+
 def _formula(estado, texto, bando, atacante=None):
     """Valida el vocabulario de la lección y permite únicamente x libre."""
     ast = analizar_formula(texto)

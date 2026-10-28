@@ -5,7 +5,7 @@ import random
 
 from evaluador.errores import Categoria
 
-from .formulas import _evaluar_objetivos
+from .formulas import _evaluar_objetivos, exigir_concepto
 from .lectura import leer_formula
 from .mundo import _unidad
 from .tipos import CONFIG_TIPOS, ENERGIA_MAXIMA, ENERGIA_POR_TURNO
@@ -76,7 +76,8 @@ def atacar(estado: dict, atacante_id: str, texto: str) -> dict:
     """Ejecuta un ataque y decide la victoria o el resultado exacto del reto."""
     estado = deepcopy(estado)
     atacante = _atacante(estado, atacante_id)
-    _, costo, objetivos, afectados = _evaluar_objetivos(estado, atacante, texto)
+    ast, costo, objetivos, afectados = _evaluar_objetivos(estado, atacante, texto)
+    exigir_concepto(estado, ast)
     bando = atacante["bando"]
     _exigir_energia(estado, bando, costo)
     estado["energia"][bando] -= costo
@@ -153,6 +154,8 @@ def mover(estado: dict, unidad_id: str, destino) -> dict:
     """Mueve una unidad una vez por turno a una casilla alcanzable."""
     estado = deepcopy(estado)
     _validar_activa(estado)
+    if estado["modo"] == "tutorial":
+        _problema("En el tutorial las posiciones están fijas: resuelve el reto con una fórmula")
     unidad = _unidad(estado, unidad_id)
     if unidad["bando"] != estado["turno"]:
         _problema("Solo puede moverse una unidad del bando en turno")

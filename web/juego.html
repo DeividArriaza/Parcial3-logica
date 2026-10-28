@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111c22" />
+    <title>Batalla Lógica · MM3032</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23111c22'/%3E%3Ctext x='16' y='24' text-anchor='middle' fill='%23d5ee89' font-size='26'%3E∀%3C/text%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/static/juego.css" />
+    <link rel="stylesheet" href="/static/juego-tutorial.css" />
+    <script defer src="/static/juego-sprites.js"></script>
+    <script defer src="/static/juego-tutorial.js"></script>
+    <script defer src="/static/juego.js"></script>
+  </head>
+  <body>
+    <header class="cabecera">
+      <a class="marca" href="/juego"
+        ><span class="emblema">∀</span
+        ><span>BATALLA <b>LÓGICA</b><small>LABORATORIO DE ESTRATEGIA · MM3032</small></span></a
+      >
+      <nav>
+        <a href="/">← Evaluador</a><button id="abrir-ayuda" class="discreto">Cómo jugar <span>?</span></button
+        ><button id="abrir-menu" class="discreto" hidden>Menú</button>
+      </nav>
+    </header>
+
+    <main>
+      <section id="menu" class="portada" aria-labelledby="titulo-menu">
+        <div class="presentacion">
+          <span class="ceja">ESTRATEGIA POR TURNOS × LÓGICA DE PRIMER ORDEN</span>
+          <h1 id="titulo-menu">Piensa la fórmula.<br /><em>Domina el campo.</em></h1>
+          <p>
+            Cada unidad es parte de un universo. Cada fórmula decide quién recibe el ataque. Elige bien tus palabras.
+          </p>
+          <div class="rasgos">
+            <span>10 × 8 casillas</span><span>4 clases de unidad</span><span>Una fórmula. Muchos objetivos.</span>
+          </div>
+        </div>
+        <div class="vista-previa">
+          <canvas
+            id="escena-menu"
+            width="640"
+            height="440"
+            aria-label="Ilustración pixel art de los dos ejércitos en el campo"
+          ></canvas>
+          <div class="etiqueta-escena"><span class="punto"></span> CAMPO DE OPERACIONES <span>SECTOR ∀-01</span></div>
+        </div>
+        <div class="configuracion panel">
+          <div class="titulo-seccion">
+            <span class="ceja">01 / ELIGE TU MISIÓN</span><span class="micro">SIN AZAR EN LOS COMBATES</span>
+          </div>
+          <div class="modos" role="group" aria-label="Modo de juego">
+            <button class="modo activo" data-modo="tutorial" aria-pressed="true">
+              <span class="icono-modo">∀</span><strong>Tutorial</strong
+              ><small id="cantidad-lecciones">Aprende paso a paso</small><span class="flecha">↗</span>
+            </button>
+            <button class="modo" data-modo="cpu" aria-pressed="false">
+              <span class="icono-modo">⌘</span><strong>Contra la CPU</strong><small>Pon a prueba tu estrategia</small
+              ><span class="flecha">↗</span>
+            </button>
+            <button class="modo" data-modo="local" aria-pressed="false">
+              <span class="icono-modo">⚑</span><strong>Dos jugadores</strong><small>Un tablero, dos estrategas</small
+              ><span class="flecha">↗</span>
+            </button>
+          </div>
+          <div id="config-tutorial" class="config-fila">
+            <label for="nivel"
+              >MISIÓN DE ENTRENAMIENTO<select id="nivel" disabled>
+                <option>Cargando niveles…</option>
+              </select></label
+            >
+            <p id="descripcion-nivel">Conecta con el servidor para consultar las misiones.</p>
+          </div>
+          <p id="progreso-lecciones" class="micro" aria-live="polite"></p>
+          <div id="config-dificultad" class="config-fila" hidden>
+            <label for="dificultad-azul"
+              >BANDO AZUL<select id="dificultad-azul">
+                <option value="facil">Fácil</option>
+                <option value="normal" selected>Normal</option>
+                <option value="dificil">Difícil</option></select
+              ><small class="detalle-dificultad"></small></label
+            ><label for="dificultad-rojo"
+              ><span id="nombre-rival">CPU · BANDO ROJO</span
+              ><select id="dificultad-rojo">
+                <option value="facil">Fácil</option>
+                <option value="normal" selected>Normal</option>
+                <option value="dificil">Difícil</option></select
+              ><small class="detalle-dificultad"></small
+            ></label>
+          </div>
+          <div class="pie-config">
+            <p id="estado-menu" role="status">Preparando el campo de batalla…</p>
+            <button id="iniciar" class="primario" disabled>Comenzar misión <span>→</span></button>
+          </div>
+        </div>
+      </section>
+
+      <section id="partida" hidden aria-label="Campo de batalla">
+        <div class="barra-partida panel">
+          <div>
+            <span class="ceja" id="modo-partida">OPERACIÓN</span>
+            <h1><span id="turno-numero">Turno 01</span> <span class="insignia" id="bando-turno">Azul</span></h1>
+          </div>
+          <div class="energia">
+            <span>ENERGÍA <b id="energia-valor">10 / 15</b></span>
+            <div class="medidor"><i id="energia-barra"></i></div>
+          </div>
+          <button id="terminar-turno" class="primario">Terminar turno →</button>
+        </div>
+        <div class="area-juego">
+          <aside class="lateral-izquierdo">
+            <section id="panel-tutorial" class="panel tutorial" hidden>
+              <span class="ceja">ENTRENAMIENTO</span>
+              <h2 id="titulo-nivel"></h2>
+              <p id="texto-nivel"></p>
+              <strong>Objetivo</strong>
+              <p id="objetivo-nivel"></p>
+              <details>
+                <summary>Necesito una pista</summary>
+                <p id="pista-nivel"></p>
+              </details>
+              <div class="micro" id="simbolos-nivel"></div>
+            </section>
+            <section class="panel escuadron">
+              <div class="titulo-seccion">
+                <h2>Escuadrones</h2>
+                <span class="micro" id="cantidad-unidades"></span>
+              </div>
+              <div id="lista-unidades"></div>
+            </section>
+            <section class="panel leyenda">
+              <span><i class="muestra azul"></i> Azul</span><span><i class="muestra rojo"></i> Rojo</span
+              ><span><i class="muestra movimiento"></i> Movimiento</span
+              ><span><i class="muestra alcance"></i> Alcance</span><small>Agua: cuesta 2 pasos · Muro: bloquea</small>
+            </section>
+          </aside>
+          <div class="campo-columna">
+            <div class="campo-marco panel">
+              <div class="campo-rotulo">
+                <span>SECTOR ∀-01</span><span id="indicacion-tablero">Selecciona una unidad de tu bando</span>
+              </div>
+              <div class="canvas-contenedor">
+                <canvas
+                  id="tablero"
+                  width="800"
+                  height="640"
+                  tabindex="0"
+                  aria-label="Tablero táctico. Usa las flechas para elegir una casilla y Enter para seleccionar o mover."
+                ></canvas>
+                <div id="tooltip" class="tooltip" hidden></div>
+                <div id="aviso-tablero" class="aviso-tablero" hidden></div>
+              </div>
+              <div class="coordenadas">
+                <span>← ↑ ↓ → + Enter para jugar con teclado</span><span>CLIC · SELECCIONAR / MOVER</span>
+              </div>
+            </div>
+            <div id="mensaje" class="mensaje" role="status" aria-live="polite">
+              Selecciona una unidad para comenzar.
+            </div>
+            <div class="panel registro">
+              <span class="ceja">RADIO DE CAMPO</span>
+              <ol id="registro" aria-live="polite"></ol>
+            </div>
+          </div>
+          <aside class="lateral-derecho">
+            <section id="instructor" class="panel instructor" aria-labelledby="instructor-titulo" hidden>
+              <div class="instructor-cabecera">
+                <span class="avatar-instructor" aria-hidden="true">∀</span>
+                <div>
+                  <span class="ceja">TU INSTRUCTOR</span>
+                  <p id="instructor-leccion"></p>
+                </div>
+                <span id="instructor-contador" class="micro"></span>
+              </div>
+              <progress id="instructor-progreso" max="4" value="1" aria-label="Progreso de esta lección"></progress>
+              <ol id="instructor-etapas" class="instructor-etapas" aria-label="Pasos de la lección"></ol>
+              <span id="instructor-tipo" class="etiqueta-paso"></span>
+              <h2 id="instructor-titulo" tabindex="-1"></h2>
+              <p id="instructor-texto"></p>
+              <div id="instructor-simbolo" class="tarjeta-simbolo" hidden></div>
+              <div id="instructor-tabla" hidden></div>
+              <div id="instructor-ejemplo" class="ejemplo-guiado" hidden>
+                <span class="micro">MIRA CÓMO SE FORMA</span>
+                <pre id="instructor-formula" aria-label="Fórmula de ejemplo"></pre>
+                <p id="instructor-lectura"></p>
+              </div>
+              <div id="instructor-comentarios" class="comentarios-unidades"></div>
+              <p id="instructor-objetivo" class="objetivo-guiado"></p>
+              <div id="instructor-feedback" class="feedback-guiado" role="status" aria-live="polite" hidden></div>
+              <ol id="instructor-pistas" class="pistas-guiadas"></ol>
+              <div class="instructor-herramientas">
+                <button id="instructor-comprobar" class="primario" hidden>Comprobar →</button>
+                <button id="instructor-pista" class="discreto" hidden>Pista</button>
+                <button id="instructor-respuesta" class="discreto" hidden>Ver respuesta</button>
+                <button id="instructor-reintentar" class="primario" hidden>Reintentar reto →</button>
+              </div>
+              <nav class="instructor-navegacion" aria-label="Navegación de la lección">
+                <button id="instructor-anterior" class="discreto">← Anterior</button>
+                <button id="instructor-siguiente" class="primario">Siguiente →</button>
+              </nav>
+            </section>
+            <section class="panel seleccion">
+              <span class="ceja">UNIDAD SELECCIONADA</span>
+              <div id="unidad-detalle"><p class="vacio">Selecciona a un soldado en el campo o en tu escuadrón.</p></div>
+              <button id="abrir-editor" class="primario" disabled>Preparar ataque <span>↗</span></button>
+            </section>
+            <section id="editor" class="panel editor" aria-labelledby="titulo-editor">
+              <div class="titulo-seccion">
+                <h2 id="titulo-editor">Orden de ataque</h2>
+                <span id="costo" class="costo">⚡ —</span>
+              </div>
+              <p class="ayuda">La fórmula elige a todos los objetivos que la cumplen dentro del alcance.</p>
+              <label for="formula">FÓRMULA · VARIABLE LIBRE x</label
+              ><textarea
+                id="formula"
+                rows="3"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder="Enemigo(x)"
+                aria-describedby="errores-formula ayuda-formula"
+              ></textarea>
+              <p id="lectura-formula" class="lectura-formula" aria-live="polite" hidden></p>
+              <div id="formula-error-marca" class="formula-error-marca" hidden></div>
+              <div id="teclado" class="teclado" aria-label="Símbolos lógicos"></div>
+              <details class="predicados" open>
+                <summary>Predicados del campo</summary>
+                <div id="predicados" class="teclado"></div>
+              </details>
+              <p id="ayuda-formula" class="ayuda">
+                Binarias entre paréntesis: (Enemigo(x) ∧ Herido(x)). Acepta ~, !, &amp;, /\, |, \/, -&gt;, =&gt;,
+                forall, exists.
+              </p>
+              <ul id="errores-formula" class="errores" aria-live="polite"></ul>
+              <div id="resultado-preview" class="resultado-preview" role="status">
+                Selecciona una unidad y escribe una fórmula.
+              </div>
+              <button id="atacar" class="ataque" disabled>Ejecutar fórmula <span>→</span></button>
+              <p class="micro aviso-amigo">El fuego amigo existe. El médico cura incluso al rival si lo incluyes.</p>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </main>
+    <footer class="pie"><span>MM3032 · LÓGICA MATEMÁTICA</span><span>LA ESTRATEGIA ESTÁ EN LA FÓRMULA.</span></footer>
+
+    <dialog id="ayuda" class="modal">
+      <span class="ceja">MANUAL DE CAMPO</span>
+      <h2>Tu fórmula es tu arma.</h2>
+      <ol>
+        <li>Selecciona una unidad azul o roja durante su turno.</li>
+        <li>Las casillas verdes muestran adónde puede moverse. El agua cuesta dos pasos.</li>
+        <li>Prepara un ataque y escribe una fórmula con <code>x</code> como único objetivo libre.</li>
+        <li>Revisa la previsualización y ejecuta. Cada unidad mueve y ataca una vez por turno.</li>
+      </ol>
+      <p>
+        <code>Enemigo(x)</code> selecciona rivales. <code>(Enemigo(x) ∧ Arquero(x))</code> selecciona arqueros rivales.
+        <code>∃y Cerca(x,y)</code> selecciona a quienes tienen un vecino.
+      </p>
+      <p>
+        El médico cura. Las otras clases dañan. <b>Las fórmulas también pueden incluir aliados.</b> Elimina al ejército
+        rival para ganar.
+      </p>
+      <p>
+        Fácil muestra objetivos y razones; Normal, conteos; Difícil, sintaxis y costo. Pasa el cursor por una unidad en
+        Fácil para ver su justificación.
+      </p>
+      <button id="cerrar-ayuda" class="primario">Entendido →</button>
+    </dialog>
+    <dialog id="relevo" class="modal relevo">
+      <span class="ceja">CAMBIO DE MANDO</span><span class="estandarte">⚑</span>
+      <h2 id="titulo-relevo">Turno de Rojo</h2>
+      <p>Pasa el teclado al siguiente jugador.</p>
+      <button id="continuar-turno" class="primario">Estoy listo →</button>
+    </dialog>
+    <dialog id="victoria" class="modal victoria">
+      <span class="ceja" id="ceja-victoria">OPERACIÓN COMPLETADA</span><span class="estandarte">✦</span>
+      <h2 id="titulo-victoria">¡Victoria!</h2>
+      <p id="texto-victoria"></p>
+      <button id="siguiente-nivel" class="primario" hidden>Siguiente lección →</button
+      ><button id="reintentar" class="primario">Volver a jugar →</button
+      ><button id="volver-menu" class="discreto">Volver al menú</button>
+    </dialog>
+  </body>
+</html>

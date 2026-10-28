@@ -10,7 +10,7 @@ from .tipos import (
 from .validacion import _problema
 
 
-def crear_estado(modo="cpu", dificultad=None, nivel=None, semilla=None) -> dict:
+def crear_estado(modo="cpu", dificultad=None, nivel=None, semilla=None, paso=None) -> dict:
     """Crea una partida independiente con parámetros de balance públicos."""
     if modo not in ("cpu", "local", "tutorial"):
         _problema("El modo debe ser cpu, local o tutorial")
@@ -29,18 +29,22 @@ def crear_estado(modo="cpu", dificultad=None, nivel=None, semilla=None) -> dict:
         nivel = 0 if nivel is None else nivel
         if type(nivel) is not int or nivel not in range(9):
             _problema("El nivel tutorial debe ser un entero entre 0 y 8")
-        unidades = _unidades_nivel(nivel)
-        objetivos = datos_nivel(nivel)["objetivos"]
-        for unidad in unidades:
-            mapa["terreno"][unidad["fila"]][unidad["col"]] = "pasto"
+        datos = datos_nivel(nivel)
+        paso = len(datos["pasos"]) - 1 if paso is None else paso
+        if type(paso) is not int or not 0 <= paso < len(datos["pasos"]):
+            _problema("El paso debe ser un índice válido de la lección, empezando por 0")
+        unidades = _unidades_nivel(nivel, paso)
+        objetivos = datos["pasos"][paso].get("objetivo", [])
+        mapa["terreno"] = [["pasto"] * mapa["ancho"] for _ in range(mapa["alto"])]
     else:
         nivel = None
+        paso = None
         unidades = _equipos()
     return {
         "modo": modo, "turno": "azul", "numero_turno": 1,
         "energia": {"azul": ENERGIA_INICIAL, "rojo": ENERGIA_INICIAL},
         "dificultad": dificultad, "mapa": mapa, "unidades": unidades,
-        "ganador": None, "nivel": nivel, "objetivos_nivel": objetivos,
+        "ganador": None, "nivel": nivel, "paso_tutorial": paso, "objetivos_nivel": objetivos,
         "nivel_completado": False, "nivel_fallido": False, "mensaje_nivel": "",
         "sobran": [], "faltan": [], "semilla": semilla,
         "costo": {"base": COSTO_BASE, "por_conectivo": COSTO_CONECTIVO,

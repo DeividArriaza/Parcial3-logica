@@ -1,0 +1,351 @@
+/* La lección pone el campo junto al instructor y conserva el editor compartido. */
+.tutorial-guiado .area-juego {
+  grid-template-columns: minmax(320px, 1fr) minmax(370px, 440px);
+  align-items: start;
+  gap: 22px;
+}
+
+.tutorial-guiado .lateral-izquierdo,
+.tutorial-guiado .seleccion,
+.tutorial-guiado #terminar-turno,
+.tutorial-guiado .registro {
+  display: none;
+}
+
+.tutorial-guiado .campo-columna {
+  position: sticky;
+  top: 18px;
+}
+
+.tutorial-guiado .lateral-derecho {
+  gap: 16px;
+}
+
+.tutorial-guiado .instructor {
+  padding: 24px;
+}
+
+.instructor-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.avatar-instructor {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 45px;
+  background: var(--lima);
+  color: var(--fondo);
+  font: 32px var(--mono);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.instructor-cabecera p {
+  margin: 5px 0 0;
+  font-size: 13px;
+}
+
+#instructor-contador {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+#instructor-progreso {
+  width: 100%;
+  height: 6px;
+  appearance: none;
+  accent-color: var(--lima);
+  border: 0;
+  background: var(--fondo);
+}
+
+#instructor-progreso::-webkit-progress-bar {
+  background: var(--fondo);
+  border-radius: 4px;
+}
+
+#instructor-progreso::-webkit-progress-value {
+  background: var(--lima);
+  border-radius: 4px;
+}
+
+#instructor-progreso::-moz-progress-bar {
+  background: var(--lima);
+}
+
+.instructor-etapas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 26px;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.instructor-etapas [aria-current],
+.instructor-etapas .visitado {
+  color: var(--lima);
+}
+
+.etiqueta-paso {
+  font-size: 12px;
+  color: var(--lima);
+}
+
+#instructor-titulo {
+  margin: 12px 0;
+  font-size: 25px;
+  line-height: 1.25;
+}
+
+#instructor-texto,
+#instructor-lectura,
+.objetivo-guiado,
+.feedback-guiado p,
+.pistas-guiadas {
+  font-size: 15px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+#instructor-texto {
+  color: #c5d2ce;
+}
+
+.tarjeta-simbolo {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  padding: 16px;
+  margin: 20px 0;
+  border: 1px solid #d5ee8950;
+  background: #d5ee8909;
+  border-radius: 7px;
+}
+
+.signo-grande {
+  font: 30px var(--mono);
+  color: var(--lima);
+  flex-shrink: 0;
+}
+
+.tarjeta-simbolo > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.instructor .editor {
+  margin: 16px 0;
+}
+
+.tarjeta-simbolo p {
+  font-size: 14px;
+  margin: 6px 0;
+}
+
+.tarjeta-simbolo small {
+  color: var(--muted);
+}
+
+.ejemplo-guiado {
+  padding: 16px;
+  background: var(--fondo);
+  border: 1px solid var(--linea);
+  border-radius: 6px;
+}
+
+#instructor-formula {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 17px/1.6 var(--mono);
+  color: var(--lima);
+  min-height: 28px;
+}
+
+#instructor-lectura {
+  margin-bottom: 0;
+  color: #d7e4d6;
+}
+
+.comentario-unidad {
+  border-left: 3px solid var(--azul);
+  padding: 10px 13px;
+  margin: 15px 0;
+  background: #111c2250;
+}
+
+.comentario-unidad strong {
+  font-size: 13px;
+  color: var(--azul);
+}
+
+.comentario-unidad p {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 6px 0 0;
+}
+
+.objetivo-guiado {
+  padding: 12px 0;
+  color: var(--lima);
+}
+
+.feedback-guiado {
+  background: #ff8b7c0a;
+  border: 1px solid #ff8b7c80;
+  padding: 15px;
+  border-radius: 6px;
+  margin-block: 15px;
+}
+
+.feedback-guiado strong {
+  color: var(--rojo);
+}
+
+.feedback-guiado p {
+  margin: 8px 0 0;
+}
+
+.feedback-guiado.acierto {
+  border-color: #d5ee8980;
+  background: #d5ee8908;
+}
+
+.feedback-guiado.acierto strong {
+  color: var(--lima);
+}
+
+.pistas-guiadas {
+  padding-left: 22px;
+  color: #d2dcca;
+}
+
+.pistas-guiadas:empty,
+.comentarios-unidades:empty {
+  display: none;
+}
+
+.pistas-guiadas li {
+  margin-bottom: 12px;
+}
+
+.instructor-herramientas,
+.instructor-navegacion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: center;
+}
+
+.instructor-navegacion {
+  border-top: 1px solid var(--linea);
+  margin-top: 24px;
+  padding-top: 18px;
+  justify-content: space-between;
+}
+
+.lectura-formula {
+  margin: 9px 0 14px;
+  padding: 12px;
+  border-left: 3px solid var(--lima);
+  background: #d5ee8908;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.tutorial-guiado .editor textarea {
+  min-height: 90px;
+  font-size: 17px;
+}
+
+.tutorial-guiado .editor .ayuda,
+.tutorial-guiado .editor #ayuda-formula {
+  font-size: 12px;
+}
+
+.tutorial-guiado .editor label {
+  font-size: 11px;
+}
+
+.burbujas-tutorial {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.burbuja-unidad {
+  position: absolute;
+  width: min(220px, 34%);
+  background: #122129ef;
+  border: 1px solid #8aa887;
+  padding: 10px;
+  border-radius: 7px;
+  box-shadow: 0 4px 18px #0005;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tabla-verdad {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+.tabla-verdad caption {
+  text-align: left;
+  padding-bottom: 12px;
+  line-height: 1.6;
+}
+
+.tabla-verdad th,
+.tabla-verdad td {
+  padding: 9px;
+  border: 1px solid var(--linea);
+  text-align: center;
+}
+
+.tabla-verdad th {
+  color: var(--lima);
+}
+
+/* La tipografía del instructor permanece grande también en escritorios compactos. */
+@media (max-width: 1050px) {
+  .tutorial-guiado .area-juego {
+    grid-template-columns: minmax(300px, 1fr) minmax(330px, 390px);
+    gap: 14px;
+  }
+
+  .tutorial-guiado .instructor {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 760px) {
+  .tutorial-guiado .area-juego {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tutorial-guiado .campo-columna {
+    position: static;
+  }
+
+  .tutorial-guiado .lateral-derecho {
+    width: 100%;
+  }
+
+  .burbuja-unidad {
+    font-size: 10px;
+    padding: 6px;
+    max-height: 24%;
+    overflow: hidden;
+  }
+}
