@@ -1,5 +1,24 @@
 @charset "UTF-8";
 
+/* Cada orden mantiene juntos el encabezado y sus efectos en orden de ejecución. */
+.registro-titulo {
+  color: var(--texto);
+}
+
+.registro .registro-efectos {
+  padding: 0 0 0 12px;
+  margin: 4px 0 6px;
+  list-style: none;
+}
+
+.registro .registro-efectos:empty {
+  display: none;
+}
+
+.registro .registro-efectos > li {
+  color: var(--muted);
+}
+
 /* Paleta, tipografía y controles compartidos. */
 :root {
   color-scheme: dark;

@@ -38,18 +38,75 @@ window.InstructorBatalla = (() => {
     }
   }
 
-  // Conserva la razón decisiva y evita mostrar todo el árbol de evaluación.
-  function razonSencilla(arbol) {
+  // Presenta el resultado del servidor en lenguaje cotidiano, sin volver a evaluarlo.
+  function razonSencilla(arbol, unidad, mostrarTestigo) {
     if (!arbol) return "El servidor no devolvió una justificación para esta unidad.";
-    const pendientes = [arbol];
-    while (pendientes.length) {
-      const paso = pendientes.shift();
-      if (["testigo", "contraejemplo"].includes(paso.tipo) && paso.explicacion) {
-        return paso.explicacion;
+    const id = unidad.id;
+    const resultado = arbol.valor ? "cumple" : "no cumple";
+    if (arbol.tipo === "atomica") {
+      const predicado = arbol.formula?.match(/^([A-Za-z]+)\(/)?.[1];
+      let motivo;
+      if (predicado === "Mio") motivo = arbol.valor ? "es de tu equipo" : "es del equipo rival";
+      else if (predicado === "Enemigo") motivo = arbol.valor ? "es del equipo rival" : "es de tu equipo";
+      else if (predicado === "Herido") {
+        motivo = arbol.valor ? "tiene menos de la mitad de su vida" : "conserva al menos la mitad de su vida";
+      } else if (["Infante", "Arquero", "Medico", "Tanque"].includes(predicado)) {
+        motivo = `es ${unidad.tipo === "Medico" ? "médico" : unidad.tipo.toLowerCase()}`;
+      } else if (predicado === "EnAgua") motivo = arbol.valor ? "está en el agua" : "no está en el agua";
+      else if (predicado === "Cerca") {
+        motivo = arbol.valor ? "está a una casilla de la otra unidad" : "no está a una casilla de la otra unidad";
+      } else if (predicado === "Alineado") {
+        motivo = arbol.valor ? "comparte fila o columna con la otra unidad" : "no cumple la relación de alineación";
       }
-      pendientes.push(...(paso.hijos || []));
+      if (motivo) return `${id} ${motivo}, así que ${resultado} ${arbol.formula}.`;
     }
-    return arbol.explicacion || arbol.formula || "";
+    if (arbol.tipo === "negacion") {
+      return arbol.valor
+        ? `${id} no cumple la condición que se niega; por eso la fórmula con «no» es verdadera.`
+        : `${id} sí cumple la condición que se niega; por eso la fórmula con «no» es falsa.`;
+    }
+    if (arbol.tipo === "conjuncion") {
+      return arbol.valor
+        ? `${id} cumple las dos condiciones a la vez.`
+        : `${id} no cumple las dos condiciones a la vez.`;
+    }
+    if (arbol.tipo === "disyuncion") {
+      return arbol.valor
+        ? `${id} cumple al menos una de las condiciones.`
+        : `${id} no cumple ninguna de las condiciones.`;
+    }
+    if (arbol.tipo === "implicacion") {
+      if (!arbol.valor) return `${id} cumple la condición inicial, pero no la exigencia: la regla es falsa.`;
+      return arbol.hijos?.[0]?.valor === false
+        ? `${id} no cumple la condición inicial, así que esta regla no le exige nada más y es verdadera.`
+        : `${id} cumple lo que exige la regla, así que la fórmula es verdadera.`;
+    }
+    if (["testigo", "contraejemplo"].includes(arbol.tipo)) {
+      const asignacion = arbol.asignacion || arbol.hijos?.at(-1)?.asignacion;
+      const nombre = asignacion?.split(/↦|=/).at(-1)?.trim();
+      if (arbol.tipo === "testigo") {
+        return mostrarTestigo
+          ? `${nombre || "Una unidad"} sirve de testigo: cumple la condición que estamos buscando.`
+          : "Encontramos al menos una unidad que cumple la condición.";
+      }
+      return `${nombre || "Una unidad"} no cumple lo que se pide: basta ese caso para que «para todo» sea falso.`;
+    }
+    if (arbol.tipo === "comprobacion") {
+      return arbol.valor
+        ? "Revisamos todas las unidades y la condición se cumple en cada caso."
+        : "Revisamos las unidades y no encontramos ninguna que cumpla la condición buscada.";
+    }
+    return `${id} ${resultado} la condición de la fórmula.`;
+  }
+
+  // La notación del evaluador queda disponible solo para quien abra el detalle.
+  function detalleFormal(arbol, profundidad = 0, lineas = []) {
+    if (!arbol || lineas.length >= 80 || profundidad > 15) return lineas.join("\n");
+    const asignacion = arbol.asignacion ? `${arbol.asignacion}: ` : "";
+    lineas.push(`${"  ".repeat(profundidad)}${asignacion}${arbol.formula}: ${arbol.valor ? "Verdadero" : "Falso"}`);
+    if (arbol.explicacion) lineas.push(`${"  ".repeat(profundidad)}${arbol.explicacion}`);
+    for (const hijo of arbol.hijos || []) detalleFormal(hijo, profundidad + 1, lineas);
+    return lineas.join("\n");
   }
   class Instructor {
     constructor(puente) {
@@ -259,7 +316,7 @@ window.InstructorBatalla = (() => {
       const tabla = elemento("table", "", "tabla-verdad");
       tabla.append(elemento("caption", this.paso.tabla_titulo || this.leccion.tabla_titulo || "Tabla de verdad"));
       const encabezado = elemento("tr", "");
-      ["P", "Q", "P → Q"].forEach((nombre) => {
+      ["Condición", "Exigencia", "Resultado"].forEach((nombre) => {
         const celda = elemento("th", nombre);
         celda.scope = "col";
         encabezado.append(celda);
@@ -327,11 +384,19 @@ window.InstructorBatalla = (() => {
         const unidad = this.unidadesIniciales.find((u) => u.id === id);
         if (!objetivo || !unidad) continue;
         const alcanza = objetivo.cumple && objetivo.en_alcance;
-        const razon = !objetivo.en_alcance
-          ? "Está fuera del alcance del atacante: puede servir de testigo, pero no recibe el ataque."
-          : razonSencilla(objetivo.arbol);
+        const razon =
+          id === this.atacante
+            ? `${id} es el atacante: no se ataca a sí mismo.`
+            : !objetivo.en_alcance
+              ? `${id} está fuera del alcance de este ataque${objetivo.cumple ? ", aunque cumple la fórmula" : ""}.`
+              : razonSencilla(objetivo.arbol, unidad, (this.leccion.simbolos || []).includes("∃"));
         const tarjeta = elemento("div", "", "comentario-unidad");
         tarjeta.append(elemento("strong", `${id} · ${alcanza ? "Sí entra" : "Queda fuera"}`), elemento("p", razon));
+        if (objetivo.arbol) {
+          const detalle = elemento("details", "", "detalle-justificacion");
+          detalle.append(elemento("summary", "Ver detalle"), elemento("pre", detalleFormal(objetivo.arbol)));
+          tarjeta.append(detalle);
+        }
         $("instructor-comentarios").append(tarjeta);
         const burbuja = elemento("div", `${id}: ${razon}`, "burbuja-unidad");
         burbuja.style.left = `${Math.min(64, Math.max(2, (unidad.col / this.puente.estado().mapa.ancho) * 100))}%`;

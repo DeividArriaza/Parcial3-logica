@@ -105,6 +105,34 @@
   line-height: 1.25;
 }
 
+#instructor-titulo:focus:not(:focus-visible) {
+  outline: none;
+}
+
+#instructor-titulo:focus-visible {
+  outline: 2px solid var(--lima);
+  outline-offset: 4px;
+}
+
+.detalle-justificacion {
+  margin-top: 12px;
+}
+
+.detalle-justificacion summary {
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.detalle-justificacion pre {
+  font: 11px/1.6 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow: auto;
+  color: var(--muted);
+}
+
 #instructor-texto,
 #instructor-lectura,
 .objetivo-guiado,

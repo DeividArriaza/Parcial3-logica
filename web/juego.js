@@ -21,6 +21,7 @@
   let celdaCursor = null;
   let animaciones = [];
   let configuracionAnterior = null;
+  let cargandoNiveles = false;
   const instructor = new window.InstructorBatalla.Instructor({
     estado: () => estado,
     ocupado: () => ocupado,
@@ -104,11 +105,19 @@
     $("mensaje").classList.toggle("error", error);
   }
 
-  function registrar(texto) {
-    $("registro").prepend(nodo("li", "", texto));
+  function registrar(texto, bloque = null) {
+    if (bloque) {
+      bloque.querySelector(".registro-efectos").append(nodo("li", "", texto));
+      return bloque;
+    }
+    const accion = nodo("li", "registro-bloque");
+    accion.append(nodo("div", "registro-titulo", texto), nodo("ul", "registro-efectos"));
+    $("registro").prepend(accion);
+    $("registro").scrollTop = 0;
     while ($("registro").children.length > 30) {
       $("registro").lastChild.remove();
     }
+    return accion;
   }
 
   async function consultarApi(accion, datos, senal) {
@@ -223,7 +232,7 @@
     $("config-dificultad").hidden = modo === "tutorial";
     $("nombre-rival").textContent = modo === "cpu" ? "CPU · BANDO ROJO" : "BANDO ROJO";
     $("iniciar").textContent = modo === "tutorial" ? "Comenzar misión →" : "Entrar en batalla →";
-    $("iniciar").disabled = modo === "tutorial" && !niveles.length;
+    $("iniciar").disabled = modo === "tutorial" && (cargandoNiveles || !niveles.length);
     dificultad();
   }
 
@@ -246,6 +255,12 @@
   }
 
   async function cargarNiveles() {
+    if (cargandoNiveles) return;
+    cargandoNiveles = true;
+    $("reintentar-niveles").disabled = true;
+    $("nivel").disabled = true;
+    if (modo === "tutorial") $("iniciar").disabled = true;
+    $("estado-menu").textContent = "Cargando lecciones…";
     try {
       const r = await consultarApi("niveles");
       niveles = r.niveles || [];
@@ -262,11 +277,18 @@
       if (pendiente) $("nivel").value = pendiente.id;
       describirNivel();
       $("estado-menu").textContent = "Elige tu misión. Cada decisión cuenta.";
+      $("reintentar-niveles").hidden = true;
     } catch (e) {
+      niveles = [];
+      $("progreso-lecciones").textContent = "";
       $("estado-menu").textContent = e.message;
       $("nivel").replaceChildren(nodo("option", "", "Niveles no disponibles"));
+      $("reintentar-niveles").hidden = false;
+    } finally {
+      cargandoNiveles = false;
+      $("reintentar-niveles").disabled = false;
+      cambiarModo(modo);
     }
-    cambiarModo(modo);
   }
 
   async function iniciarPartida(config, pasoInicial = 0) {
@@ -817,7 +839,6 @@
       } else if (accion === "terminar_turno") {
         mensaje("Tu turno. Selecciona una unidad para continuar.");
       } else if (accion === "mover") {
-        registrar(`${datos.unidad} se movió a (${datos.destino[0] + 1}, ${datos.destino[1] + 1}).`);
         mensaje("Posición asegurada. Puedes preparar una fórmula con esta unidad.");
       } else {
         mensaje(
@@ -856,6 +877,7 @@
 
   async function reproducir(eventos) {
     let atacante = null;
+    let bloqueAtaque = null;
     for (const e of eventos) {
       if (e.tipo === "mover") {
         const u = unidad(e.unidad);
@@ -873,11 +895,13 @@
         );
         u.col = e.destino[0];
         u.fila = e.destino[1];
+        bloqueAtaque = null;
+        registrar(`${e.unidad} se movió a (${e.destino[0] + 1}, ${e.destino[1] + 1}).`);
       } else if (e.tipo === "ataque") {
         atacante = unidad(e.atacante);
         const cpu = estado.modo === "cpu" && atacante?.bando === "rojo";
         const texto = `${cpu ? "La CPU lanzó" : `${e.atacante} lanzó`}: ${e.formula}`;
-        registrar(texto);
+        bloqueAtaque = registrar(texto);
         mensaje(texto);
         if (cpu) {
           $("aviso-tablero").textContent = texto;
@@ -919,7 +943,7 @@
         );
         const cantidad = e.cantidad ?? e.danio ?? 0;
         u.vida = Math.max(0, Math.min(u.vida_max, u.vida + (cura ? cantidad : -cantidad)));
-        registrar(`${u.id}: ${cura ? "+" : "−"}${cantidad} PV ${cura ? "de curación" : "de daño"}.`);
+        registrar(`${u.id}: ${cura ? "+" : "−"}${cantidad} PV ${cura ? "de curación" : "de daño"}.`, bloqueAtaque);
       } else if (e.tipo === "baja") {
         const id = e.unidad || e.objetivo;
         const u = unidad(id);
@@ -933,9 +957,9 @@
           );
         }
         estado.unidades = estado.unidades.filter((u) => u.id !== id);
-        registrar(`${id} cayó en combate.`);
+        registrar(`${id} cayó en combate.`, bloqueAtaque);
       } else if (e.tipo === "mensaje") {
-        registrar(e.mensaje || "Nadie cumplió la fórmula.");
+        registrar(e.mensaje || "Nadie cumplió la fórmula.", bloqueAtaque);
       }
     }
   }
@@ -944,15 +968,33 @@
   function mostrarVictoria() {
     const tutorial =
       estado.modo === "tutorial" && (estado.ganador === "azul" || estado.nivel_completado || estado.nivel_superado);
-    $("titulo-victoria").textContent = tutorial
-      ? "¡Misión superada!"
-      : `¡Victoria de ${nombres[estado.ganador] || "tu escuadrón"}!`;
-    $("ceja-victoria").textContent = tutorial ? "FÓRMULA RESUELTA" : "OPERACIÓN COMPLETADA";
-    $("texto-victoria").textContent = tutorial
-      ? "Tu fórmula decidió el combate. Continúa con el siguiente concepto."
-      : "El ejército rival ha sido eliminado del universo.";
     const indice = niveles.findIndex((n) => String(n.id) === String(estado.nivel));
-    $("siguiente-nivel").hidden = !tutorial || indice < 0 || indice >= niveles.length - 1;
+    const ultimaLeccion = tutorial && indice >= 0 && indice === niveles.length - 1;
+    const derrotaCpu = estado.modo === "cpu" && estado.ganador === "rojo";
+    if (ultimaLeccion) {
+      $("titulo-victoria").textContent = "¡Tutorial completado!";
+      $("texto-victoria").textContent = "Completaste todas las lecciones. Pon en práctica lo aprendido contra la CPU.";
+    } else if (tutorial) {
+      $("titulo-victoria").textContent = "¡Misión superada!";
+      $("texto-victoria").textContent = "Tu fórmula decidió el combate. Continúa con el siguiente concepto.";
+    } else if (estado.modo === "cpu") {
+      $("titulo-victoria").textContent = derrotaCpu ? "Derrota" : "¡Victoria!";
+      $("texto-victoria").textContent = derrotaCpu
+        ? "La CPU eliminó a tu escuadrón. Puedes intentarlo de nuevo."
+        : "Eliminaste al ejército de la CPU. ¡Buen trabajo!";
+    } else {
+      $("titulo-victoria").textContent = `¡Victoria de ${nombres[estado.ganador] || "tu escuadrón"}!`;
+      $("texto-victoria").textContent = "El ejército rival ha sido eliminado del universo.";
+    }
+    $("ceja-victoria").textContent = ultimaLeccion
+      ? "ENTRENAMIENTO COMPLETADO"
+      : tutorial
+        ? "FÓRMULA RESUELTA"
+        : derrotaCpu
+          ? "FIN DE LA PARTIDA"
+          : "OPERACIÓN COMPLETADA";
+    $("siguiente-nivel").hidden = !tutorial || indice < 0 || ultimaLeccion;
+    $("ir-cpu").hidden = !ultimaLeccion;
     if (tutorial) actualizarProgresoLecciones();
     if (!$("victoria").open) {
       $("victoria").showModal();
@@ -1197,13 +1239,15 @@
       t.hidden = true;
       return;
     }
+    const alcance =
+      u.id === seleccionado
+        ? "es el atacante: no se ataca a sí mismo"
+        : o.en_alcance
+          ? "en alcance"
+          : "fuera de alcance";
     t.replaceChildren(
       nodo("h3", "", `${u.id} · ${nombres[u.tipo]}`),
-      nodo(
-        "p",
-        "",
-        `${o.cumple ? "Cumple" : "No cumple"} la fórmula · ${o.en_alcance ? "en alcance" : "fuera de alcance"}`,
-      ),
+      nodo("p", "", `${o.cumple ? "Cumple" : "No cumple"} la fórmula · ${alcance}`),
     );
     if (o.cumple && o.en_alcance && o.cantidad !== undefined) {
       t.append(
@@ -1215,7 +1259,12 @@
       );
     }
     if (o.arbol) {
-      t.append(construirArbol(o.arbol));
+      const arbol = construirArbol(o.arbol);
+      if (instructor.activo) {
+        const detalle = nodo("details");
+        detalle.append(nodo("summary", "", "Ver detalle"), arbol);
+        t.append(detalle);
+      } else t.append(arbol);
     }
     t.hidden = false;
     const contenedor = lienzo.parentElement;
@@ -1331,6 +1380,12 @@
   ["azul", "rojo"].forEach((b) => $(`dificultad-${b}`).addEventListener("change", dificultad));
   $("nivel").addEventListener("change", describirNivel);
   $("iniciar").addEventListener("click", iniciarDesdeMenu);
+  $("reintentar-niveles").addEventListener("click", cargarNiveles);
+  $("ir-cpu").addEventListener("click", () => {
+    volverMenu();
+    cambiarModo("cpu");
+    iniciarDesdeMenu();
+  });
   $("formula").addEventListener("input", entradaFormula);
   $("abrir-editor").addEventListener("click", () => {
     editorAbierto = true;
