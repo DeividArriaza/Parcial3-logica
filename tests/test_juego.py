@@ -19,7 +19,7 @@ from evaluador.juego.reglas import posiciones_alcanzables
 from evaluador.juego.tipos import LENGUAJE
 from evaluador.juego.validacion import _validar_estado_completo
 from evaluador.semantica import Evaluador
-from evaluador.sintaxis import analizar
+from evaluador.sintaxis import Binaria, Cuantificador, Negacion, Predicado, analizar
 
 
 def unidad(nombre, bando, tipo, col, fila, vida=None):
@@ -325,6 +325,34 @@ class TutorialTest(unittest.TestCase):
         print(f"\nFuerza bruta: {total} clases de fórmulas, 9 retos, <=3 operadores, {duracion:.3f} s")
         self.assertLess(duracion, 10)
 
+    def test_todas_las_practicas_exigen_el_concepto_por_fuerza_bruta(self):
+        """Descarta atajos sin el símbolo enseñado y otros predicados en las lecciones iniciales."""
+        inicio = perf_counter()
+        total = 0
+        practicas = 0
+        for nivel in niveles():
+            for indice, paso in enumerate(nivel["pasos"]):
+                if paso["tipo"] != "practica":
+                    continue
+                practicas += 1
+                esperado = analizar(paso["solucion"], LENGUAJE)
+                omitido = esperado.nombre if isinstance(esperado, Predicado) else nivel["simbolo_nuevo"]
+                variables = ("x", "y", "z") if nivel["id"] == 8 else ("x", "y")
+                busqueda = BusquedaFormulas(paso["estado"], nivel, omitido, variables)
+                candidatas = busqueda.generar(3)
+                total += len(candidatas)
+                for (tabla, libres), texto in candidatas.items():
+                    if libres <= {"x"}:
+                        seleccion = busqueda.seleccion(tabla)
+                        self.assertEqual(golpea(paso["estado"], texto), seleccion)
+                        self.assertNotEqual(seleccion, set(paso["objetivo"]),
+                                            (nivel["id"], indice, texto))
+                respuesta = practicar(paso["estado"], nivel["id"], indice, paso["solucion"])
+                self.assertTrue(respuesta["acierto"], (nivel["id"], indice, respuesta))
+        duracion = perf_counter() - inicio
+        print(f"\nPrácticas: {practicas}, {total} clases sin el concepto, <=3 operadores, {duracion:.3f} s")
+        self.assertLess(duracion, 10)
+
     def test_vocabulario_restringido_incluye_igualdad_y_constante(self):
         """No se pueden colar igualdad, constantes, predicados ni conectivos no declarados."""
         for formula in ["x=x", "Cerca(x,yo)", "(Herido(x) | Tanque(x))", "Mio(x)"]:
@@ -375,7 +403,7 @@ class TutorialTest(unittest.TestCase):
         """La anidación permite testigos distintos; invertirla cambia la selección."""
         estado = crear_estado("tutorial", nivel=8)
         self.assertEqual(golpea(estado, niveles()[8]["solucion_ejemplo"]), {"R1"})
-        inversa = "(Enemigo(x) & " + ORDEN_UNICO + ")"
+        inversa = "(Enemigo(x) & exists z (Mio(z) & forall y (Cerca(x,y) -> Cerca(y,z))))"
         self.assertNotEqual(golpea(estado, inversa), {"R1"})
         vista = previsualizar(estado, "A1", niveles()[8]["solucion_ejemplo"])
         r2 = next(o for o in vista["objetivos"] if o["id"] == "R2")
@@ -416,12 +444,24 @@ class TutorialTest(unittest.TestCase):
             reto = nivel["pasos"][-1]
             metas = []
             solucion = analizar(nivel["solucion_ejemplo"], LENGUAJE)
+            prohibidas = [solucion]
+            if isinstance(solucion, Binaria):
+                prohibidas.extend([solucion.izquierda, solucion.derecha])
+            elif isinstance(solucion, Negacion):
+                prohibidas.append(solucion.subformula)
+            elif isinstance(solucion, Cuantificador):
+                prohibidas.append(solucion.cuerpo)
             for paso in nivel["pasos"][:-1]:
                 texto = json.dumps(paso, ensure_ascii=False)
                 self.assertNotIn(nivel["solucion_ejemplo"], texto, nivel["id"])
-                for campo in ("formula", "solucion"):
-                    if campo in paso:
-                        self.assertNotEqual(analizar(paso[campo], LENGUAJE), solucion, nivel["id"])
+                textos = [paso[campo] for campo in ("formula", "solucion", "plantilla", "texto")
+                          if campo in paso] + paso.get("pistas", [])
+                for texto_formula in textos:
+                    try:
+                        formula = analizar(texto_formula, LENGUAJE)
+                    except ErrorValidacion:
+                        continue
+                    self.assertNotIn(formula, prohibidas, (nivel["id"], texto_formula))
                 if paso["tipo"] in ("practica", "ejemplo"):
                     self.assertNotEqual(paso["objetivo"], reto["objetivo"], nivel["id"])
                     self.assertNotEqual(paso["estado"]["unidades"], reto["estado"]["unidades"])
@@ -490,6 +530,10 @@ class TutorialTest(unittest.TestCase):
         segundo = previsualizar(unico["estado"], "A1", ORDEN_UNICO)
         self.assertEqual(primero["costo"], segundo["costo"])
         self.assertNotEqual(por_vecino["objetivo"], unico["objetivo"])
+        self.assertIn("Alineado", por_vecino["formula"])
+        self.assertIn("Alineado", unico["formula"])
+        self.assertIn("R6", por_vecino["objetivo"])
+        self.assertNotIn("R6", unico["objetivo"])
         vista = previsualizar(simple["estado"], "A1", simple["formula"])
         soldado = next(o for o in vista["objetivos"] if o["id"] == "R4")
         self.assertEqual(soldado["arbol"]["tipo"], "contraejemplo")
@@ -501,6 +545,20 @@ class TutorialTest(unittest.TestCase):
             self.assertIn((vecino, vigilante), relaciones["Cerca"])
             self.assertNotIn((vecino, "R1"), {(a, b) for a, b in relaciones["Cerca"]
                                             if (b,) in relaciones["Mio"]})
+
+    def test_textos_respetan_el_vocabulario_y_las_reglas_reales(self):
+        """Permite Medico y evita términos prematuros o daño imaginario por cercanía."""
+        lecciones = niveles()
+        self.assertIn("Medico", lecciones[1]["predicados_permitidos"])
+        previsualizar(crear_estado("tutorial", nivel=1), "A1", "Medico(x)")
+        for nivel in lecciones[:7]:
+            for paso in nivel["pasos"]:
+                textos = [paso.get(campo, "") for campo in ("titulo", "texto", "lectura")]
+                textos += paso.get("pistas", [])
+                self.assertNotIn("testigo", " ".join(textos).casefold(), nivel["id"])
+        texto = " ".join(p.get("texto", "") for p in lecciones[7]["pasos"])
+        self.assertIn("La cercanía no causa daño", texto)
+        self.assertNotIn("poner en riesgo", texto)
 
 
 class RutasJuegoTest(unittest.TestCase):
@@ -552,6 +610,21 @@ class RutasJuegoTest(unittest.TestCase):
             respuesta = self.cliente.post("/api/juego/nueva",
                                           json={"modo": "tutorial", "nivel": 3, "paso": paso})
             self.assertFalse(respuesta.json["ok"])
+
+    def test_practicar_rechaza_los_tres_atajos_reportados(self):
+        """Los predicados que antes acertaban ya no seleccionan la meta de esas prácticas."""
+        for nivel, paso, formula in [(1, 2, "Enemigo(x)"), (3, 2, "Mio(x)"),
+                                     (7, 3, "Enemigo(x)")]:
+            estado = crear_estado("tutorial", nivel=nivel, paso=paso)
+            original = deepcopy(estado)
+            respuesta = self.cliente.post("/api/juego/practicar", json={
+                "estado": estado, "nivel": nivel, "paso": paso, "formula": formula,
+            })
+            self.assertEqual(respuesta.status_code, 200)
+            self.assertTrue(respuesta.json["ok"])
+            self.assertFalse(respuesta.json["acierto"])
+            self.assertTrue(respuesta.json["sobran"] or respuesta.json["faltan"])
+            self.assertEqual(estado, original)
 
     def test_cuerpos_raros_en_todas_las_rutas(self):
         """Cada ruta POST rechaza cuerpos no objeto, campos raros y JSON malformado."""

@@ -7,8 +7,8 @@ from .tipos import CONFIG_TIPOS
 RETO_UNIVERSAL = (
     "(Enemigo(x) & forall y (Cerca(x,y) -> exists z (Mio(z) & Cerca(y,z))))"
 )
-ORDEN_POR_VECINO = "forall y (Cerca(x,y) -> exists z (Mio(z) & Cerca(y,z)))"
-ORDEN_UNICO = "exists z (Mio(z) & forall y (Cerca(x,y) -> Cerca(y,z)))"
+ORDEN_POR_VECINO = "forall y (Mio(y) -> exists z (Cerca(x,z) & Alineado(y,z)))"
+ORDEN_UNICO = "exists z (Cerca(x,z) & forall y (Mio(y) -> Alineado(y,z)))"
 
 
 def _unidad(nombre, bando, tipo, col, fila, vida=None) -> dict:
@@ -89,7 +89,8 @@ def _inicio() -> dict:
 def _tipos() -> dict:
     """Contrasta tipo y bando antes de combinarlos en lecciones posteriores."""
     ejemplo = _grupo([("R2", "Tanque", 3, 4, None), ("A2", "Infante", 1, 2, None)])
-    practica = _grupo([("R3", "Infante", 2, 4, None), ("A3", "Tanque", 1, 2, None)])
+    practica = _grupo([("R3", "Infante", 2, 4, None), ("A3", "Tanque", 1, 2, None),
+                      ("R4", "Tanque", 3, 3, None)])
     pasos = [
         _explicacion("Preguntas sobre el tipo", "Un predicado es una pregunta sobre un soldado. "
                      "Infante(x) pregunta si x es infante; Arquero pregunta si es arquero; "
@@ -101,7 +102,7 @@ def _tipos() -> dict:
                   "Escribe el nombre del tipo y después su argumento (x).", "Escribe otro predicado"),
     ]
     return _leccion(1, "Predicados de tipo", [],
-                    ["Arquero", "Infante", "Tanque", "Mio", "Enemigo"],
+                    ["Arquero", "Infante", "Tanque", "Medico", "Mio", "Enemigo"],
                     "Arquero", ["R1"], "Arquero(x)", pasos)
 
 
@@ -115,8 +116,9 @@ def _negacion() -> dict:
                      "16/16 no cumple; 5/10 tampoco cumple, porque es exactamente la mitad; "
                      "2/7 sí cumple. No herido puede haber perdido vida: no significa vida completa.",
                      resaltar=["R2", "R3", "A2"]),
-        _ejemplo("Herido(x)", ejemplo, ["R3", "A2"],
-                 "Compara 5/10 con 2/7: solo el segundo está por debajo de la mitad."),
+        _ejemplo("Arquero(x)", ejemplo, ["R3", "A2"],
+                 "A2 es arquero y tiene 2/7 de vida; R3 es infante y tiene 5/10. "
+                 "Solo A2 está por debajo de la mitad de su vida máxima."),
         _explicacion("Invierte la respuesta", "¬ significa no: invierte verdadero y falso. "
                      "Escríbelo con ~ o ! antes de la pregunta que quieres negar.", "¬"),
         _ejemplo("~Tanque(x)", ejemplo, ["R2", "R3"],
@@ -132,7 +134,8 @@ def _negacion() -> dict:
 def _conjuncion() -> dict:
     """Construye la sintaxis binaria y después cambia las dos condiciones."""
     ejemplo = _grupo([("R2", "Infante", 3, 4, 2), ("A2", "Infante", 1, 2, 2)])
-    primera = _grupo([("A3", "Arquero", 2, 4, 2), ("R3", "Arquero", 3, 4, 2)])
+    primera = _grupo([("A3", "Arquero", 2, 4, 2), ("R3", "Arquero", 3, 4, 2),
+                      ("A4", "Infante", 1, 2, 2)])
     segunda = _grupo([("R4", "Tanque", 3, 4, 2), ("A4", "Tanque", 1, 2, 2),
                       ("R5", "Infante", 3, 3, 2)])
     tercera = _grupo([("A5", "Tanque", 2, 4, 2), ("R6", "Tanque", 3, 4, 2),
@@ -188,7 +191,7 @@ def _disyuncion() -> dict:
 def _implicacion() -> dict:
     """Explica la condición falsa antes de aplicar una restricción táctica por tipo."""
     ejemplo = _grupo([("R3", "Tanque", 3, 4, 16), ("R4", "Tanque", 3, 3, 2),
-                      ("A3", "Infante", 1, 2, 10)])
+                      ("A3", "Infante", 1, 2, 10), ("R5", "Infante", 3, 5, 2)])
     primera = _grupo([("R5", "Arquero", 3, 4, 2), ("A4", "Infante", 1, 2, 10),
                       ("R6", "Arquero", 3, 3, 7)])
     segunda = _grupo([("R7", "Arquero", 3, 4, 2), ("R8", "Tanque", 3, 3, 16),
@@ -203,9 +206,9 @@ def _implicacion() -> dict:
     explicacion["tabla_verdad"] = tabla
     pasos = [
         explicacion,
-        _ejemplo("(Tanque(x) -> Herido(x))", ejemplo, ["R3", "A3"],
-                 "Exige menos de media vida solo a los tanques. A3 no es tanque: "
-                 "la condición inicial es falsa y la implicación es verdadera, aunque A3 sea aliado."),
+        _ejemplo("(Herido(x) -> Tanque(x))", ejemplo, ["R4", "R5"],
+                 "Si tiene menos de media vida, exige que sea tanque: R4 cumple y R5 no. "
+                 "Para R3 y A3 la condición inicial es falsa, así que la implicación es verdadera."),
         _practica(["A4", "R5"], "(Arquero(x) -> Herido(x))",
                   "(Arquero(x) ___ Herido(x))", primera, "Restringe ahora a los arqueros.",
                   "Usa ->: si es arquero debe estar herido.", "Completa la condición"),
@@ -233,8 +236,8 @@ def _relaciones() -> dict:
                      "Ambas excluyen comparar un soldado consigo mismo."),
         _ejemplo("Alineado(x,yo)", ejemplo, ["R3", "R4"],
                  "R3 comparte fila con el atacante; R4 no comparte ni fila ni columna."),
-        _practica(["A4", "R5"], "Alineado(yo,x)", "Alineado(___,x)", practica,
-                  "Compara el atacante con cada soldado x.",
+        _practica(["A4"], "Cerca(yo,x)", "Cerca(___,x)", practica,
+                  "Selecciona a quien esté a una casilla del atacante, no solo en su fila o columna.",
                   "La constante que representa al atacante es yo.", "Completa el otro argumento"),
     ]
     return _leccion(6, "Relaciones y yo", [], ["Cerca", "Alineado", "yo"],
@@ -248,7 +251,7 @@ def _existencial() -> dict:
     primera = _grupo([("R5", "Infante", 3, 4, 2), ("A4", "Tanque", 3, 5, 2),
                       ("R6", "Tanque", 1, 1, 2)])
     segunda = _grupo([("R7", "Infante", 3, 4, 2), ("A5", "Tanque", 3, 5, 2),
-                      ("A6", "Infante", 1, 3, 2), ("R8", "Tanque", 4, 6, 2)])
+                      ("A6", "Infante", 1, 3, 2), ("R8", "Tanque", 4, 4, 2)])
     pasos = [
         _explicacion("Prueba cada posible vecino", "∃ se escribe exists. x sigue siendo el soldado "
                      "que revisamos; y recorre el mismo dominio: todos los soldados vivos de ambos equipos. "
@@ -262,10 +265,11 @@ def _existencial() -> dict:
                   "Exige Mio(y), porque y es el vecino que buscas.", "Escribe la condición del testigo"),
         _practica(["R7"], "(Enemigo(x) & exists y (Mio(y) & Cerca(x,y)))", "", segunda,
                   "Distingue el bando del objetivo x del bando del testigo y.",
-                  "Exige Enemigo(x) por fuera y Mio(y) dentro de exists.", "Selecciona enemigos protegidos"),
+                  "Exige Enemigo(x) por fuera y Mio(y) dentro de exists.", "Selecciona enemigos acompañados"),
         _explicacion("Que no exista ninguno", "Negar una existencia exige que ningún soldado sirva "
                      "de testigo. En el reto atacarás enemigos sin compañeros nuestros cerca; "
-                     "así evitas poner en riesgo a esos compañeros."),
+                     "es una forma de distinguir enemigos aislados de los que tienen compañía. "
+                     "La cercanía no causa daño: solo reciben el ataque quienes selecciona tu fórmula."),
     ]
     return _leccion(7, "Existe", ["∧", "¬", "∃"], ["Enemigo", "Mio", "Cerca"],
                     "∃", ["R1"], "(Enemigo(x) & ~exists y (Mio(y) & Cerca(x,y)))", pasos)
@@ -287,6 +291,15 @@ def _vigilancia(espejo=False) -> list[dict]:
     return unidades
 
 
+def _alineacion_guiada() -> list[dict]:
+    """Separa dos puntos próximos a R6, cada uno alineado con un aliado diferente."""
+    return _grupo([
+        ("A2", "Tanque", 3, 2, 16), ("R6", "Infante", 3, 4, 2),
+        ("R7", "Infante", 3, 3, 2), ("R8", "Infante", 4, 4, 2),
+        ("R9", "Infante", 2, 2, 2),
+    ])
+
+
 def _universal() -> dict:
     """Separa comprobación universal, contraejemplo y orden de testigos."""
     ejemplo = _grupo([("A2", "Tanque", 3, 4, 16), ("R3", "Infante", 2, 4, 2),
@@ -294,7 +307,8 @@ def _universal() -> dict:
     primera = _grupo([("A3", "Tanque", 2, 3, 16), ("R5", "Infante", 1, 3, 2),
                       ("R6", "Infante", 3, 3, 2)])
     segunda = _grupo([("A4", "Tanque", 3, 5, 16), ("R7", "Infante", 3, 4, 2),
-                      ("R8", "Infante", 4, 5, 2), ("R9", "Infante", 5, 5, 2)])
+                      ("R8", "Infante", 4, 5, 2), ("R9", "Infante", 5, 5, 2),
+                      ("R10", "Infante", 3, 1, 2), ("A5", "Infante", 1, 3, 10)])
     pasos = [
         _explicacion("Debe servir para todos", "∀ se escribe forall. Para cada soldado y del dominio "
                      "comprobamos la condición. Un contraejemplo es un solo soldado que la hace falsa: "
@@ -310,20 +324,22 @@ def _universal() -> dict:
                   "Ataca enemigos cuyos vecinos sean todos de nuestro equipo.",
                   "La condición inicial es Cerca(x,y); lo exigido es Mio(y).",
                   "Cambia qué condición exiges a todos"),
-        _explicacion("Un vigilante para cada vecino", "Ahora anidamos: colocamos un cuantificador "
-                     "dentro de otro. Para cada vecino y buscamos algún aliado z cerca de y. "
-                     "El vigilante z puede cambiar con y. Si buscamos z primero, el mismo aliado "
-                     "tiene que servir para todos los vecinos. Compara ambos órdenes en el mismo tablero."),
-        _ejemplo(ORDEN_POR_VECINO, _vigilancia(True), ["R6", "R9"],
-                 "Cada vecino de R6 tiene un vigilante; pueden ser aliados distintos. "
-                 "La relación Cerca impide que un soldado se vigile a sí mismo.",
-                 "Para cada vecino, algún vigilante"),
-        _ejemplo(ORDEN_UNICO, _vigilancia(True), ["R6", "R9"],
-                 "Ahora un solo aliado tendría que vigilar a todos los vecinos de R6, "
-                 "y ninguno lo logra. El costo es el mismo, pero el resultado cambia.",
-                 "Un mismo vigilante para todos"),
+        _explicacion("Un punto de alineación para cada aliado",
+                     "Ahora anidamos: colocamos un cuantificador dentro de otro. "
+                     "Para cada aliado y buscamos un soldado z cercano a x que esté alineado con y. "
+                     "z puede cambiar con y. Si buscamos z primero, un mismo soldado debe estar "
+                     "alineado con todos los aliados. Compara ambos órdenes en el mismo tablero."),
+        _ejemplo(ORDEN_POR_VECINO, _alineacion_guiada(), ["R6", "R9"],
+                 "Cerca de R6, R7 está alineado con A2 y R8 con A1: cada aliado tiene su punto. "
+                 "R6 no puede usarse como su propio punto cercano porque Cerca excluye al mismo soldado.",
+                 "Para cada aliado, algún punto alineado"),
+        _ejemplo(ORDEN_UNICO, _alineacion_guiada(), ["R6", "R9"],
+                 "Ningún soldado cercano a R6 está alineado con A1 y A2 a la vez. "
+                 "El costo es el mismo, pero R6 ya no cumple la fórmula.",
+                 "Un mismo punto alineado con todos"),
     ]
-    return _leccion(8, "Para todo y anidación", ["∧", "→", "∃", "∀"], ["Enemigo", "Mio", "Cerca"],
+    return _leccion(8, "Para todo y anidación", ["∧", "→", "∃", "∀"],
+                    ["Enemigo", "Mio", "Cerca", "Alineado"],
                     "∀", ["R1"], RETO_UNIVERSAL, pasos)
 
 
