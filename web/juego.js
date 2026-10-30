@@ -363,7 +363,7 @@
     if (!estado) {
       return;
     }
-    $("turno-numero").textContent = `Turno ${String(estado.numero_turno).padStart(2, "0")}`;
+    $("turno-numero").textContent = `Ronda ${Math.ceil(estado.numero_turno / 2)}`;
     $("bando-turno").textContent = nombres[estado.turno];
     $("bando-turno").classList.toggle("rojo", estado.turno === "rojo");
     $("modo-partida").textContent = {
@@ -971,6 +971,7 @@
     const indice = niveles.findIndex((n) => String(n.id) === String(estado.nivel));
     const ultimaLeccion = tutorial && indice >= 0 && indice === niveles.length - 1;
     const derrotaCpu = estado.modo === "cpu" && estado.ganador === "rojo";
+    $("icono-resultado").textContent = derrotaCpu ? "⚑" : "✦";
     if (ultimaLeccion) {
       $("titulo-victoria").textContent = "¡Tutorial completado!";
       $("texto-victoria").textContent = "Completaste todas las lecciones. Pon en práctica lo aprendido contra la CPU.";

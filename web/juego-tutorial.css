@@ -320,6 +320,44 @@
   line-height: 1.5;
 }
 
+/* La flecha sale del borde que mira hacia la casilla del soldado. */
+.burbuja-unidad::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  background: #122129;
+  transform: rotate(45deg);
+}
+
+.burbuja-unidad[data-lado="arriba"]::after {
+  left: calc(var(--flecha-x) - 5px);
+  bottom: -6px;
+  border-right: 1px solid #8aa887;
+  border-bottom: 1px solid #8aa887;
+}
+
+.burbuja-unidad[data-lado="abajo"]::after {
+  left: calc(var(--flecha-x) - 5px);
+  top: -6px;
+  border-left: 1px solid #8aa887;
+  border-top: 1px solid #8aa887;
+}
+
+.burbuja-unidad[data-lado="derecha"]::after {
+  top: calc(var(--flecha-y) - 5px);
+  left: -6px;
+  border-left: 1px solid #8aa887;
+  border-bottom: 1px solid #8aa887;
+}
+
+.burbuja-unidad[data-lado="izquierda"]::after {
+  top: calc(var(--flecha-y) - 5px);
+  right: -6px;
+  border-right: 1px solid #8aa887;
+  border-top: 1px solid #8aa887;
+}
+
 .tabla-verdad {
   width: 100%;
   border-collapse: collapse;
@@ -373,7 +411,6 @@
   .burbuja-unidad {
     font-size: 10px;
     padding: 6px;
-    max-height: 24%;
-    overflow: hidden;
+    width: min(190px, 46%);
   }
 }

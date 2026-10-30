@@ -103,7 +103,7 @@
         <div class="barra-partida panel">
           <div>
             <span class="ceja" id="modo-partida">OPERACIÓN</span>
-            <h1><span id="turno-numero">Turno 01</span> <span class="insignia" id="bando-turno">Azul</span></h1>
+            <h1><span id="turno-numero">Ronda 1</span> <span class="insignia" id="bando-turno">Azul</span></h1>
           </div>
           <div class="energia">
             <span>ENERGÍA <b id="energia-valor">10 / 15</b></span>
@@ -277,7 +277,8 @@
       <button id="continuar-turno" class="primario">Estoy listo →</button>
     </dialog>
     <dialog id="victoria" class="modal victoria">
-      <span class="ceja" id="ceja-victoria">OPERACIÓN COMPLETADA</span><span class="estandarte">✦</span>
+      <span class="ceja" id="ceja-victoria">OPERACIÓN COMPLETADA</span>
+      <span id="icono-resultado" class="estandarte" aria-hidden="true">✦</span>
       <h2 id="titulo-victoria">¡Victoria!</h2>
       <p id="texto-victoria"></p>
       <button id="ir-cpu" class="primario" hidden>Contra la CPU →</button>

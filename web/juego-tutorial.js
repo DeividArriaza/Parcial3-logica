@@ -121,6 +121,9 @@ window.InstructorBatalla = (() => {
       this.destinoEditor = $("editor").parentElement;
       this.burbujas = elemento("div", "", "burbujas-tutorial");
       $("tablero").parentElement.append(this.burbujas);
+      this.observadorTablero = new ResizeObserver(() => this.posicionarBurbujas());
+      this.observadorTablero.observe($("tablero"));
+      this.observadorTablero.observe(this.burbujas);
       $("instructor-anterior").addEventListener("click", () => this.cambiarPaso(this.indice - 1));
       $("instructor-siguiente").addEventListener("click", () => this.cambiarPaso(this.indice + 1));
       $("instructor-comprobar").addEventListener("click", () => this.comprobar());
@@ -399,9 +402,59 @@ window.InstructorBatalla = (() => {
         }
         $("instructor-comentarios").append(tarjeta);
         const burbuja = elemento("div", `${id}: ${razon}`, "burbuja-unidad");
-        burbuja.style.left = `${Math.min(64, Math.max(2, (unidad.col / this.puente.estado().mapa.ancho) * 100))}%`;
-        burbuja.style.top = `${id === this.paso.comentar[0] ? 4 : 76}%`;
+        burbuja.dataset.unidad = id;
         this.burbujas.append(burbuja);
+      }
+      this.posicionarBurbujas();
+    }
+
+    // Mide el canvas visible: en pantallas compactas tiene márgenes dentro del marco.
+    posicionarBurbujas() {
+      if (!this.activo || !this.burbujas.children.length) return;
+      const lienzo = $("tablero");
+      if (!lienzo.clientWidth || !lienzo.clientHeight) return;
+      const mapa = this.puente.estado().mapa;
+      const anchoCasilla = lienzo.clientWidth / mapa.ancho;
+      const altoCasilla = lienzo.clientHeight / mapa.alto;
+      const colocadas = [];
+      const margen = 6;
+      const separacion = 10;
+      for (const burbuja of this.burbujas.children) {
+        const unidad = this.unidadesIniciales.find((u) => u.id === burbuja.dataset.unidad);
+        if (!unidad) continue;
+        const x = lienzo.offsetLeft + (unidad.col + 0.5) * anchoCasilla;
+        const y = lienzo.offsetTop + (unidad.fila + 0.5) * altoCasilla;
+        const ancho = burbuja.offsetWidth;
+        const alto = burbuja.offsetHeight;
+        const opciones = [
+          { lado: "arriba", x: x - ancho / 2, y: y - altoCasilla / 2 - separacion - alto },
+          { lado: "abajo", x: x - ancho / 2, y: y + altoCasilla / 2 + separacion },
+          { lado: "derecha", x: x + anchoCasilla / 2 + separacion, y: y - alto / 2 },
+          { lado: "izquierda", x: x - anchoCasilla / 2 - separacion - ancho, y: y - alto / 2 },
+        ];
+        for (const opcion of opciones) {
+          const izquierda = Math.max(margen, Math.min(this.burbujas.clientWidth - ancho - margen, opcion.x));
+          const arriba = Math.max(margen, Math.min(this.burbujas.clientHeight - alto - margen, opcion.y));
+          opcion.peso = Math.abs(izquierda - opcion.x) + Math.abs(arriba - opcion.y);
+          opcion.x = izquierda;
+          opcion.y = arriba;
+          for (const otra of colocadas) {
+            const superposicionX = Math.max(
+              0,
+              Math.min(izquierda + ancho, otra.x + otra.ancho) - Math.max(izquierda, otra.x),
+            );
+            const superposicionY = Math.max(0, Math.min(arriba + alto, otra.y + otra.alto) - Math.max(arriba, otra.y));
+            opcion.peso += superposicionX * superposicionY;
+          }
+        }
+        opciones.sort((a, b) => a.peso - b.peso);
+        const elegida = opciones[0];
+        burbuja.style.left = `${elegida.x}px`;
+        burbuja.style.top = `${elegida.y}px`;
+        burbuja.dataset.lado = elegida.lado;
+        burbuja.style.setProperty("--flecha-x", `${Math.max(12, Math.min(ancho - 12, x - elegida.x))}px`);
+        burbuja.style.setProperty("--flecha-y", `${Math.max(12, Math.min(alto - 12, y - elegida.y))}px`);
+        colocadas.push({ x: elegida.x, y: elegida.y, ancho, alto });
       }
     }
 
