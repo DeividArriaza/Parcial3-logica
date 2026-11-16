@@ -10,6 +10,8 @@ def _termino(termino) -> str:
     if isinstance(termino, Aplicacion):
         if termino.funcion == "yo":
             return "el atacante"
+        if termino.funcion == "objetivo":
+            return "el objetivo"
         argumentos = ", ".join(_termino(a) for a in termino.argumentos)
         return termino.funcion if not argumentos else f"{termino.funcion} de {argumentos}"
     return termino.nombre

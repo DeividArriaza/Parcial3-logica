@@ -9,7 +9,7 @@ class InterpretacionJuego:
     def __init__(self, dominio, relaciones, yo=""):
         """Conserva el dominio vivo y la constante relativa al atacante."""
         self.dominio = list(dominio)
-        self.funciones = {"yo": {(): yo}}
+        self.funciones = {"yo": {(): yo}, "objetivo": {(): yo}}
         self.relaciones = relaciones
 
 

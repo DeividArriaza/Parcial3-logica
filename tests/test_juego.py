@@ -44,9 +44,9 @@ def golpea(estado, formula):
 
 
 class BusquedaFormulas:
-    """Enumera toda fórmula acotada, compartiendo equivalentes por tabla y variables libres."""
+    """Enumera fórmulas por tabla y dependencias: constante objetivo y variables por ligar."""
 
-    def __init__(self, estado, vocabulario, omitido, variables=("x", "y")):
+    def __init__(self, estado, vocabulario, omitido, variables=("objetivo", "y")):
         """Fija el mundo y representa cada tabla de verdad mediante bits de asignaciones."""
         self.estado = estado
         self.variables = variables
@@ -81,7 +81,8 @@ class BusquedaFormulas:
                 tabla = 0
                 for indice, valores in enumerate(self.asignaciones):
                     entorno = dict(zip(self.variables, valores))
-                    if self.evaluador.evaluar(ast, entorno).valor:
+                    self.evaluador.I.funciones["objetivo"] = {(): entorno["objetivo"]}
+                    if self.evaluador.evaluar(ast, {k: v for k, v in entorno.items() if k != "objetivo"}).valor:
                         tabla |= 1 << indice
                 libres = frozenset(a for a in argumentos if a in self.variables)
                 atomos.setdefault((tabla, libres), texto)
@@ -106,7 +107,7 @@ class BusquedaFormulas:
                 if "¬" in self.operadores:
                     nuevas.setdefault((self.universo ^ tabla, libres), "~" + texto)
                 for simbolo in self.operadores & {"∃", "∀"}:
-                    for variable in self.variables:
+                    for variable in (v for v in self.variables if v != "objetivo"):
                         clave = (self._cuantificar(tabla, variable, simbolo), libres - {variable})
                         nuevas.setdefault(clave, f"{simbolo}{variable} {texto}")
             for izquierda in range(tamano):
@@ -124,7 +125,7 @@ class BusquedaFormulas:
         return {clave: texto for grupo in tamanos for clave, texto in grupo.items()}
 
     def seleccion(self, tabla):
-        """Proyecta una fórmula con únicamente x libre sobre las unidades en alcance."""
+        """Proyecta la interpretación de la constante objetivo sobre las unidades en alcance."""
         atacante = next(u for u in self.estado["unidades"] if u["id"] == "A1")
         resultado = set()
         for unidad in self.estado["unidades"]:
@@ -142,7 +143,7 @@ class ReglasJuegoTest(unittest.TestCase):
         """El costo cuenta operadores y cada dificultad oculta el detalle requerido."""
         for dificultad, detalle in [("facil", "completo"), ("normal", "conteo"), ("dificil", "sintaxis")]:
             estado = crear_estado("local", {"azul": dificultad, "rojo": dificultad})
-            vista = previsualizar(estado, "A2", "(Enemigo(x) & exists y Cerca(x,y))")
+            vista = previsualizar(estado, "A2", "(Enemigo(objetivo) & exists y Cerca(objetivo,y))")
             self.assertEqual(vista["costo"], 4)
             self.assertEqual(vista["nivel_detalle"], detalle)
             self.assertTrue(vista["lectura"])
@@ -150,13 +151,13 @@ class ReglasJuegoTest(unittest.TestCase):
                 self.assertEqual(vista["objetivos"], [])
         estado["energia"]["azul"] = 1
         with self.assertRaises(ErrorValidacion):
-            previsualizar(estado, "A2", "exists y Enemigo(x)")
+            previsualizar(estado, "A2", "exists y Enemigo(objetivo)")
 
     def test_danio_precision_victoria_y_estado_terminal_valido(self):
         """Un único objetivo recibe seis de daño y el estado ganador sigue siendo válido."""
         estado = encuentro([unidad("A1", "azul", "Infante", 1, 1),
                             unidad("R1", "rojo", "Infante", 2, 1, 6)])
-        resultado = atacar(estado, "A1", "Enemigo(x)")
+        resultado = atacar(estado, "A1", "Enemigo(objetivo)")
         self.assertEqual(resultado["estado"]["ganador"], "azul")
         self.assertEqual([e["tipo"] for e in resultado["eventos"]],
                          ["ataque", "danio", "baja", "victoria"])
@@ -170,12 +171,12 @@ class ReglasJuegoTest(unittest.TestCase):
         estado = encuentro([unidad("A1", "azul", "Infante", 1, 1),
                             unidad("A2", "azul", "Infante", 2, 1),
                             unidad("R1", "rojo", "Infante", 1, 2)])
-        resultado = atacar(estado, "A1", "Cerca(x,yo)")
+        resultado = atacar(estado, "A1", "Cerca(objetivo,yo)")
         self.assertEqual([u["vida"] for u in resultado["estado"]["unidades"]], [10, 5, 5])
         estado["unidades"][0] = unidad("A1", "azul", "Medico", 1, 1)
         estado["unidades"][1]["vida"], estado["unidades"][2]["vida"] = 9, 4
-        vista = previsualizar(estado, "A1", "Cerca(x,yo)")
-        resultado = atacar(estado, "A1", "Cerca(x,yo)")
+        vista = previsualizar(estado, "A1", "Cerca(objetivo,yo)")
+        resultado = atacar(estado, "A1", "Cerca(objetivo,yo)")
         self.assertEqual([u["vida"] for u in resultado["estado"]["unidades"]], [7, 10, 7])
         self.assertEqual([o["cantidad"] for o in vista["objetivos"] if o["afectado"]], [1, 3])
 
@@ -183,11 +184,11 @@ class ReglasJuegoTest(unittest.TestCase):
         """Mio depende del turno y los predicados vacíos son evaluables."""
         estado = encuentro([unidad("R1", "rojo", "Infante", 2, 1),
                             unidad("A1", "azul", "Infante", 3, 1)], turno="rojo")
-        self.assertEqual(previsualizar(estado, "R1", "Enemigo(x)")["resumen"]["enemigos"], 1)
-        self.assertEqual(previsualizar(estado, "R1", "Mio(x)")["resumen"]["aliados"], 0)
-        self.assertEqual(previsualizar(estado, "R1", "Herido(x)")["resumen"]["enemigos"], 0)
-        with self.assertRaisesRegex(ErrorValidacion, "única variable libre"):
-            previsualizar(estado, "R1", "Cerca(x,z)")
+        self.assertEqual(previsualizar(estado, "R1", "Enemigo(objetivo)")["resumen"]["enemigos"], 1)
+        self.assertEqual(previsualizar(estado, "R1", "Mio(objetivo)")["resumen"]["aliados"], 0)
+        self.assertEqual(previsualizar(estado, "R1", "Herido(objetivo)")["resumen"]["enemigos"], 0)
+        with self.assertRaisesRegex(ErrorValidacion, "variables libres"):
+            previsualizar(estado, "R1", "Cerca(objetivo,z)")
 
     def test_movimiento_agua_muro_ocupacion_y_una_vez(self):
         """El camino respeta costos, obstáculos y el uso del movimiento del turno."""
@@ -224,7 +225,7 @@ class ReglasJuegoTest(unittest.TestCase):
             mutar(estado)
             with self.subTest(estado=estado):
                 with self.assertRaises(ErrorValidacion):
-                    previsualizar(estado, "A2", "Enemigo(x)")
+                    previsualizar(estado, "A2", "Enemigo(objetivo)")
 
     def test_cpu_determinista_y_estado_final(self):
         """La semilla reproduce acciones y el estado incluye las bajas de la CPU."""
@@ -264,10 +265,10 @@ class ReglasJuegoTest(unittest.TestCase):
     def test_longitud_y_recursion_controladas(self):
         """Una negación enorme y una recursión del parser se convierten en errores del juego."""
         with self.assertRaisesRegex(ErrorValidacion, "300"):
-            previsualizar(crear_estado(), "A2", "~" * 1100 + "Enemigo(x)")
+            previsualizar(crear_estado(), "A2", "~" * 1100 + "Enemigo(objetivo)")
         with patch("evaluador.juego.formulas.analizar", side_effect=RecursionError):
             with self.assertRaisesRegex(ErrorValidacion, "anidación"):
-                analizar_formula("Enemigo(x)")
+                analizar_formula("Enemigo(objetivo)")
 
 
 class TutorialTest(unittest.TestCase):
@@ -311,12 +312,12 @@ class TutorialTest(unittest.TestCase):
         for nivel in niveles():
             estado = crear_estado("tutorial", nivel=nivel["id"])
             # En la lección anidada también se incluye z, la variable de su ejemplo.
-            variables = ("x", "y", "z") if nivel["id"] == 8 else ("x", "y")
+            variables = ("objetivo", "y", "z") if nivel["id"] == 8 else ("objetivo", "y")
             busqueda = BusquedaFormulas(estado, nivel, nivel["simbolo_nuevo"], variables)
             candidatas = busqueda.generar(3)
             total += len(candidatas)
             for (tabla, libres), texto in candidatas.items():
-                if libres <= {"x"}:
+                if libres <= {"objetivo"}:
                     seleccion = busqueda.seleccion(tabla)
                     self.assertEqual(golpea(estado, texto), seleccion)
                     self.assertNotEqual(seleccion, set(nivel["objetivos"]), (nivel["id"], texto))
@@ -337,12 +338,12 @@ class TutorialTest(unittest.TestCase):
                 practicas += 1
                 esperado = analizar(paso["solucion"], LENGUAJE)
                 omitido = esperado.nombre if isinstance(esperado, Predicado) else nivel["simbolo_nuevo"]
-                variables = ("x", "y", "z") if nivel["id"] == 8 else ("x", "y")
+                variables = ("objetivo", "y", "z") if nivel["id"] == 8 else ("objetivo", "y")
                 busqueda = BusquedaFormulas(paso["estado"], nivel, omitido, variables)
                 candidatas = busqueda.generar(3)
                 total += len(candidatas)
                 for (tabla, libres), texto in candidatas.items():
-                    if libres <= {"x"}:
+                    if libres <= {"objetivo"}:
                         seleccion = busqueda.seleccion(tabla)
                         self.assertEqual(golpea(paso["estado"], texto), seleccion)
                         self.assertNotEqual(seleccion, set(paso["objetivo"]),
@@ -355,14 +356,14 @@ class TutorialTest(unittest.TestCase):
 
     def test_vocabulario_restringido_incluye_igualdad_y_constante(self):
         """No se pueden colar igualdad, constantes, predicados ni conectivos no declarados."""
-        for formula in ["x=x", "Cerca(x,yo)", "(Herido(x) | Tanque(x))", "Mio(x)"]:
+        for formula in ["objetivo=objetivo", "Cerca(objetivo,yo)", "(Herido(objetivo) | Tanque(objetivo))", "Mio(objetivo)"]:
             with self.assertRaisesRegex(ErrorValidacion, "no permite"):
                 previsualizar(crear_estado("tutorial", nivel=5), "A1", formula)
 
     def test_fallo_explicito_y_estado_valido_sin_objetivos_muertos(self):
         """Un ataque incorrecto termina el intento aunque elimine a los objetivos."""
         estado = crear_estado("tutorial", nivel=3)
-        resultado = atacar(estado, "A1", "(Enemigo(x) & Enemigo(x))")
+        resultado = atacar(estado, "A1", "(Enemigo(objetivo) & Enemigo(objetivo))")
         self.assertTrue(resultado["estado"]["nivel_fallido"])
         self.assertEqual(resultado["sobran"], ["R2", "R3"])
         self.assertEqual(resultado["faltan"], [])
@@ -378,11 +379,11 @@ class TutorialTest(unittest.TestCase):
         """La práctica distingue fuego amigo y omisiones, incluso con cero energía."""
         estado = crear_estado("tutorial", nivel=3)
         estado["energia"]["azul"] = 0
-        resultado = practicar(estado, 3, 3, "Tanque(x)")
+        resultado = practicar(estado, 3, 3, "Tanque(objetivo)")
         self.assertEqual(resultado["sobran"], ["A4"])
         self.assertIn("tu equipo", resultado["mensaje"])
         self.assertIn("Enemigo", resultado["mensaje"])
-        resultado = practicar(crear_estado("tutorial", nivel=2), 2, 4, "Arquero(x)")
+        resultado = practicar(crear_estado("tutorial", nivel=2), 2, 4, "Arquero(objetivo)")
         self.assertEqual(resultado["faltan"], ["R4"])
         self.assertIn("Faltó", resultado["mensaje"])
 
@@ -395,7 +396,7 @@ class TutorialTest(unittest.TestCase):
         vista = previsualizar(estado, "A1", niveles()[7]["solucion_ejemplo"])
         self.assertTrue(next(o for o in vista["objetivos"] if o["id"] == "R1")["afectado"])
         self.assertFalse(next(o for o in vista["objetivos"] if o["id"] == "R2")["afectado"])
-        positiva = "exists y (Mio(y) & Cerca(x,y))"
+        positiva = "exists y (Mio(y) & Cerca(objetivo,y))"
         self.assertIn("R2", golpea(estado, positiva))
         self.assertNotIn("R1", golpea(estado, positiva))
 
@@ -403,7 +404,7 @@ class TutorialTest(unittest.TestCase):
         """La anidación permite testigos distintos; invertirla cambia la selección."""
         estado = crear_estado("tutorial", nivel=8)
         self.assertEqual(golpea(estado, niveles()[8]["solucion_ejemplo"]), {"R1"})
-        inversa = "(Enemigo(x) & exists z (Mio(z) & forall y (Cerca(x,y) -> Cerca(y,z))))"
+        inversa = "(Enemigo(objetivo) & exists z (Mio(z) & forall y (Cerca(objetivo,y) -> Cerca(y,z))))"
         self.assertNotEqual(golpea(estado, inversa), {"R1"})
         vista = previsualizar(estado, "A1", niveles()[8]["solucion_ejemplo"])
         r2 = next(o for o in vista["objetivos"] if o["id"] == "R2")
@@ -420,20 +421,20 @@ class TutorialTest(unittest.TestCase):
     def test_lectura_completa(self):
         """Compara frases completas para detectar contracciones y cuantificadores poco naturales."""
         casos = [
-            ("(Enemigo(x) & ~Tanque(x))", "(x es enemigo) y (x no es tanque)"),
-            ("(Mio(x) | Herido(x))", "(x es de tu equipo) o (x está herido)"),
-            ("(Herido(x) -> Infante(x))", "si (x está herido), entonces (x es infante)"),
-            ("Cerca(x,yo)", "x está cerca del atacante"),
-            ("~Cerca(x,yo)", "x no está cerca del atacante"),
-            ("Alineado(x,yo)", "x está alineado con el atacante"),
-            ("exists y (Cerca(x,y) & Mio(y))",
-             "existe algún soldado y para el que ((x está cerca de y) y (y es de tu equipo))"),
+            ("(Enemigo(objetivo) & ~Tanque(objetivo))", "(el objetivo es enemigo) y (el objetivo no es tanque)"),
+            ("(Mio(objetivo) | Herido(objetivo))", "(el objetivo es de tu equipo) o (el objetivo está herido)"),
+            ("(Herido(objetivo) -> Infante(objetivo))", "si (el objetivo está herido), entonces (el objetivo es infante)"),
+            ("Cerca(objetivo,yo)", "el objetivo está cerca del atacante"),
+            ("~Cerca(objetivo,yo)", "el objetivo no está cerca del atacante"),
+            ("Alineado(objetivo,yo)", "el objetivo está alineado con el atacante"),
+            ("exists y (Cerca(objetivo,y) & Mio(y))",
+             "existe algún soldado y para el que ((el objetivo está cerca de y) y (y es de tu equipo))"),
             ("forall y exists z Alineado(y,z)",
              "para cada soldado y, se cumple "
              "(existe algún soldado z para el que (y está alineado con z))"),
-            ("x=yo", "x es el mismo soldado que el atacante"),
-            ("~(Arquero(x) | Medico(x))", "no se cumple que ((x es arquero) o (x es médico))"),
-            ("EnAgua(x)", "x está en el agua"),
+            ("objetivo=yo", "el objetivo es el mismo soldado que el atacante"),
+            ("~(Arquero(objetivo) | Medico(objetivo))", "no se cumple que ((el objetivo es arquero) o (el objetivo es médico))"),
+            ("EnAgua(objetivo)", "el objetivo está en el agua"),
         ]
         for formula, esperada in casos:
             self.assertEqual(leer_formula(formula), esperada)
@@ -477,32 +478,32 @@ class TutorialTest(unittest.TestCase):
             with self.assertRaisesRegex(ErrorValidacion, "posiciones están fijas"):
                 mover(estado, unidad_id, destino)
         with self.assertRaisesRegex(ErrorValidacion, "símbolo nuevo"):
-            atacar(estado, "A1", "Arquero(x)")
+            atacar(estado, "A1", "Arquero(objetivo)")
         self.assertEqual(estado, original)
         for nivel in niveles():
             # Siempre existe al menos un átomo permitido que omite el símbolo nuevo.
             predicado = next(p for p in nivel["predicados_permitidos"]
                              if p != "yo" and p != nivel["simbolo_nuevo"])
-            argumentos = "x,x" if LENGUAJE.predicados[predicado] == 2 else "x"
+            argumentos = "objetivo,objetivo" if LENGUAJE.predicados[predicado] == 2 else "objetivo"
             with self.assertRaisesRegex(ErrorValidacion, "símbolo nuevo"):
                 atacar(crear_estado("tutorial", nivel=nivel["id"]), "A1", predicado + f"({argumentos})")
         with self.assertRaisesRegex(ErrorValidacion, "paso guiado"):
-            atacar(crear_estado("tutorial", nivel=3, paso=2), "A1", "(Mio(x) & Arquero(x))")
+            atacar(crear_estado("tutorial", nivel=3, paso=2), "A1", "(Mio(objetivo) & Arquero(objetivo))")
 
     def test_cumplir_alcance_umbral_herido_y_bando(self):
         """Separa verdad y alcance; media vida no es Herido y el bando depende del turno."""
         estado = crear_estado("tutorial", nivel=0)
-        objetivos = previsualizar(estado, "A1", "Enemigo(x)")["objetivos"]
+        objetivos = previsualizar(estado, "A1", "Enemigo(objetivo)")["objetivos"]
         fuera = next(o for o in objetivos if o["id"] == "R2")
         self.assertTrue(fuera["cumple"])
         self.assertFalse(fuera["en_alcance"])
         self.assertFalse(fuera["afectado"])
         estado = niveles()[0]["pasos"][1]["estado"]
-        yo = previsualizar(estado, "A1", "Mio(x)")["objetivos"][0]
+        yo = previsualizar(estado, "A1", "Mio(objetivo)")["objetivos"][0]
         self.assertTrue(yo["cumple"])
         self.assertFalse(yo["afectado"])
         estado = niveles()[2]["pasos"][1]["estado"]
-        objetivos = {o["id"]: o for o in previsualizar(estado, "A1", "Herido(x)")["objetivos"]}
+        objetivos = {o["id"]: o for o in previsualizar(estado, "A1", "Herido(objetivo)")["objetivos"]}
         self.assertFalse(objetivos["R2"]["cumple"])  # Vida completa: 16/16.
         self.assertFalse(objetivos["R3"]["cumple"])  # Exactamente la mitad: 5/10.
         self.assertTrue(objetivos["A2"]["cumple"])  # Menos de la mitad: 2/7.
@@ -518,7 +519,7 @@ class TutorialTest(unittest.TestCase):
                          [True, True, False, True])
         estado = crear_estado("tutorial", nivel=5)
         self.assertEqual(golpea(estado, nivel["solucion_ejemplo"]), {"R1", "R2"})
-        self.assertEqual(golpea(estado, "(Tanque(x) -> Herido(x))"), {"A2", "R1", "R2"})
+        self.assertEqual(golpea(estado, "(Tanque(objetivo) -> Herido(objetivo))"), {"A2", "R1", "R2"})
 
     def test_comparacion_guiada_mismo_tablero_y_costo(self):
         """Los dos órdenes comparten escenario y costo; el universal sencillo señala un aliado lejano."""
@@ -550,7 +551,7 @@ class TutorialTest(unittest.TestCase):
         """Permite Medico y evita términos prematuros o daño imaginario por cercanía."""
         lecciones = niveles()
         self.assertIn("Medico", lecciones[1]["predicados_permitidos"])
-        previsualizar(crear_estado("tutorial", nivel=1), "A1", "Medico(x)")
+        previsualizar(crear_estado("tutorial", nivel=1), "A1", "Medico(objetivo)")
         for nivel in lecciones[:7]:
             for paso in nivel["pasos"]:
                 textos = [paso.get(campo, "") for campo in ("titulo", "texto", "lectura")]
@@ -603,7 +604,7 @@ class RutasJuegoTest(unittest.TestCase):
                 self.assertEqual(respuesta["estado"], paso["estado"])
         estado = crear_estado("tutorial", nivel=3)
         for ruta, campos in [("mover", {"unidad": "A2", "destino": [1, 0]}),
-                             ("atacar", {"atacante": "A1", "formula": "Arquero(x)"})]:
+                             ("atacar", {"atacante": "A1", "formula": "Arquero(objetivo)"})]:
             respuesta = self.cliente.post("/api/juego/" + ruta, json={"estado": estado, **campos})
             self.assertFalse(respuesta.json["ok"])
         for paso in (-1, 999, True, [], "2"):
@@ -613,8 +614,8 @@ class RutasJuegoTest(unittest.TestCase):
 
     def test_practicar_rechaza_los_tres_atajos_reportados(self):
         """Los predicados que antes acertaban ya no seleccionan la meta de esas prácticas."""
-        for nivel, paso, formula in [(1, 2, "Enemigo(x)"), (3, 2, "Mio(x)"),
-                                     (7, 3, "Enemigo(x)")]:
+        for nivel, paso, formula in [(1, 2, "Enemigo(objetivo)"), (3, 2, "Mio(objetivo)"),
+                                     (7, 3, "Enemigo(objetivo)")]:
             estado = crear_estado("tutorial", nivel=nivel, paso=paso)
             original = deepcopy(estado)
             respuesta = self.cliente.post("/api/juego/practicar", json={
@@ -629,7 +630,7 @@ class RutasJuegoTest(unittest.TestCase):
     def test_cuerpos_raros_en_todas_las_rutas(self):
         """Cada ruta POST rechaza cuerpos no objeto, campos raros y JSON malformado."""
         rutas = ("nueva", "mover", "previsualizar", "atacar", "terminar_turno", "practicar")
-        cuerpos = [None, [], ["x"], 1, True, "texto", {}, {"estado": []},
+        cuerpos = [None, [], ["objetivo"], 1, True, "texto", {}, {"estado": []},
                    {"modo": [], "nivel": {}, "dificultad": "facil"}]
         for ruta, cuerpo in product(rutas, cuerpos):
             respuesta = self.cliente.post("/api/juego/" + ruta, data=json.dumps(cuerpo),
@@ -662,7 +663,7 @@ class RutasJuegoTest(unittest.TestCase):
                 destino = destino[clave]
             destino[camino[-1]] = valor
             datos = {"estado": estado, "unidad": "A1", "destino": [2, 0],
-                     "atacante": "A2", "formula": "Enemigo(x)", "nivel": 0, "paso": 2}
+                     "atacante": "A2", "formula": "Enemigo(objetivo)", "nivel": 0, "paso": 2}
             respuesta = self.cliente.post("/api/juego/" + ruta, json=datos)
             self.assertLess(respuesta.status_code, 500, (ruta, camino, valor))
             if not respuesta.json["ok"]:
@@ -673,14 +674,14 @@ class RutasJuegoTest(unittest.TestCase):
         """La regresión de recursión se controla en preview, ataque y práctica."""
         estado = crear_estado("tutorial", nivel=0)
         for ruta, formula in product(("previsualizar", "atacar", "practicar"),
-                                    ("~" * 1100 + "Enemigo(x)", [], {}, 7, None)):
+                                    ("~" * 1100 + "Enemigo(objetivo)", [], {}, 7, None)):
             respuesta = self.cliente.post("/api/juego/" + ruta, json={
                 "estado": estado, "atacante": "A1", "formula": formula, "nivel": 0, "paso": 2,
             })
             self.assertLess(respuesta.status_code, 500)
             self.assertFalse(respuesta.json["ok"])
         for campo, valor in [("nivel", 9), ("nivel", True), ("paso", -1), ("paso", 0), ("paso", 99)]:
-            datos = {"estado": estado, "nivel": 0, "paso": 2, "formula": "Enemigo(x)"}
+            datos = {"estado": estado, "nivel": 0, "paso": 2, "formula": "Enemigo(objetivo)"}
             datos[campo] = valor
             respuesta = self.cliente.post("/api/juego/practicar", json=datos)
             self.assertFalse(respuesta.json["ok"])

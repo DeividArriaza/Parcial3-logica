@@ -73,32 +73,42 @@ def exigir_concepto(estado: dict, ast) -> None:
 
 
 def _formula(estado, texto, bando, atacante=None):
-    """Valida el vocabulario de la lección y permite únicamente x libre."""
+    """Exige fórmulas cerradas y valida el vocabulario de la lección."""
     ast = analizar_formula(texto)
     try:
+        libres = variables_libres(ast)
+        if libres:
+            _problema("La fórmula debe ser cerrada; quedan variables libres: " + ", ".join(libres)
+                      + ". Usa la constante objetivo o liga cada variable con ∀ o ∃.",
+                      Categoria.ASIGNACION)
         if estado.get("modo") == "tutorial":
             nivel = datos_nivel(estado["nivel"])
-            permitidos = set(nivel["simbolos_permitidos"] + nivel["predicados_permitidos"])
+            permitidos = set(nivel["simbolos_permitidos"] + nivel["predicados_permitidos"] + ["objetivo"])
             prohibidos = _simbolos_ast(ast) - permitidos
             if prohibidos:
                 _problema("Este nivel no permite estos símbolos: " + ", ".join(sorted(prohibidos)),
                           Categoria.SIMBOLO)
-        libres = [v for v in variables_libres(ast) if v != "x"]
-        if libres:
-            _problema("La única variable libre permitida es 'x'; encontradas: " + ", ".join(libres),
-                      Categoria.ASIGNACION)
         return ast, Evaluador(_interpretacion(estado, bando, atacante)), _costo(ast)
     except RecursionError:
         _problema("La fórmula tiene demasiados niveles de anidación", Categoria.SINTAXIS)
 
 
-def _evaluar_objetivos(estado, atacante, texto):
+def _evaluar_objetivos(estado, atacante, texto, objetivo_id=None):
     """Evalúa cada soldado vivo e incluye las razones y el alcance por separado."""
     ast, evaluador, costo = _formula(estado, texto, atacante["bando"], atacante["id"])
+    if objetivo_id is not None:
+        if estado.get("modo") == "tutorial":
+            _problema("En el tutorial se comprueba la fórmula sobre todo el grupo del ejercicio")
+        if not isinstance(objetivo_id, str) or not any(u["id"] == objetivo_id for u in estado["unidades"]):
+            _problema("Selecciona un objetivo vivo del tablero")
     objetivos = []
     try:
         for unidad in estado["unidades"]:
-            arbol = evaluador.evaluar(ast, {"x": unidad["id"]})
+            # Cada comprobación tiene una interpretación explícita de la constante.
+            # Nunca se usa un entorno para completar variables libres.
+            constante_objetivo = objetivo_id or unidad["id"]
+            evaluador.I.funciones["objetivo"] = {(): constante_objetivo}
+            arbol = evaluador.evaluar(ast, {})
             distancia = abs(unidad["col"] - atacante["col"]) + abs(unidad["fila"] - atacante["fila"])
             en_alcance = (
                 unidad["id"] != atacante["id"]
@@ -106,7 +116,9 @@ def _evaluar_objetivos(estado, atacante, texto):
             )
             objetivos.append({
                 "id": unidad["id"], "cumple": arbol.valor, "en_alcance": en_alcance,
-                "afectado": arbol.valor and en_alcance,
+                "afectado": arbol.valor and en_alcance and (objetivo_id is None or unidad["id"] == objetivo_id),
+                "seleccionado": objetivo_id is None or unidad["id"] == objetivo_id,
+                "constantes": {"yo": atacante["id"], "objetivo": constante_objetivo},
                 "aliado": unidad["bando"] == atacante["bando"],
                 "efecto": "cura" if atacante["tipo"] == "Medico" else "danio",
                 "arbol": arbol.como_dict(),

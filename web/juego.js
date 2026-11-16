@@ -195,6 +195,7 @@
     $("atacar").disabled = !puede || !previsualizacion?.ok;
     $("abrir-menu").disabled = ocupado;
     $("formula").disabled = ocupado;
+    $("objetivo-ataque").disabled = ocupado || instructor.activo;
     document.querySelectorAll("#teclado button,#predicados button").forEach((b) => (b.disabled = ocupado));
     document.querySelectorAll(".unidad-fila").forEach((b) => {
       const v = unidad(b.dataset.unidad);
@@ -363,6 +364,19 @@
     if (!estado) {
       return;
     }
+    const selector = $("objetivo-ataque");
+    const anterior = selector.value;
+    const teniaGrupo = selector.options.length > 1 && anterior === "";
+    selector.replaceChildren();
+    if (estado.modo === "tutorial") {
+      selector.append(new Option("Grupo del ejercicio · una comprobación por soldado", ""));
+    } else {
+      const candidatos = estado.unidades.filter((u) => u.id !== seleccionado);
+      candidatos.forEach((u) => selector.append(new Option(`${u.id} · ${nombres[u.tipo]} · ${nombres[u.bando]} · ${u.vida} PV`, u.id)));
+      selector.append(new Option("Todos · comprobar la fórmula por cada soldado", ""));
+      selector.value = teniaGrupo ? "" : candidatos.some((u) => u.id === anterior) ? anterior
+        : candidatos.find((u) => unidad()?.tipo === "Medico" ? u.bando === estado.turno : u.bando !== estado.turno)?.id || candidatos[0]?.id || "";
+    }
     $("turno-numero").textContent = `Ronda ${Math.ceil(estado.numero_turno / 2)}`;
     $("bando-turno").textContent = nombres[estado.turno];
     $("bando-turno").classList.toggle("rojo", estado.turno === "rojo");
@@ -432,7 +446,7 @@
     const info = nodo("div");
     info.append(
       nodo("h2", "", `${u.id} · ${nombres[u.tipo]}`),
-      nodo("small", "", `${nombres[u.bando]} · ${u.tipo === "Medico" ? "Cura en área" : "Ataque en área"}`),
+      nodo("small", "", `${nombres[u.bando]} · ${u.tipo === "Medico" ? "Cura según fórmula" : "Ataque según fórmula"}`),
     );
     cab.append(arte.retrato(u), info);
     const est = nodo("div", "estadisticas");
@@ -489,6 +503,7 @@
       return;
     }
     seleccionado = id;
+    $("objetivo-ataque").replaceChildren();
     invalidarPrevisualizacion();
     renderizar();
     $("indicacion-tablero").textContent = u.movio
@@ -599,6 +614,12 @@
     if (u) {
       if (u.bando === estado.turno) {
         elegir(u.id);
+      } else if (!instructor.activo && unidad()) {
+        $("objetivo-ataque").value = u.id;
+        editorAbierto = true;
+        invalidarPrevisualizacion();
+        programarPrevisualizacion();
+        mensaje(`Objetivo elegido: ${u.id}. Usa objetivo en tu fórmula cerrada.`);
       } else {
         mensaje("Es una unidad rival. Selecciona una unidad propia y usa una fórmula para alcanzarla.");
       }
@@ -723,6 +744,7 @@
         estado,
         atacante: u.id,
         formula: $("formula").value.trim(),
+        objetivo: $("objetivo-ataque").value || undefined,
       });
       if (numero !== secuenciaPrevisualizacion) {
         return;
@@ -757,7 +779,7 @@
           );
         }
         if (r.nivel_detalle === "completo") {
-          const objetivos = (r.objetivos || []).filter((o) => o.cumple && o.en_alcance);
+          const objetivos = (r.objetivos || []).filter((o) => o.afectado);
           const k = objetivos.length;
           const efecto = cura
             ? estadisticasUnidad(u).poder
@@ -900,7 +922,7 @@
       } else if (e.tipo === "ataque") {
         atacante = unidad(e.atacante);
         const cpu = estado.modo === "cpu" && atacante?.bando === "rojo";
-        const texto = `${cpu ? "La CPU lanzó" : `${e.atacante} lanzó`}: ${e.formula}`;
+        const texto = `${cpu ? "La CPU lanzó" : `${e.atacante} lanzó`}${e.objetivo ? ` contra ${e.objetivo}` : ""}: ${e.formula}`;
         bloqueAtaque = registrar(texto);
         mensaje(texto);
         if (cpu) {
@@ -1121,7 +1143,7 @@
         contexto.fillStyle = "#d5ee89";
         contexto.fillText("✓", x + 62, y + 74);
       }
-      if (o?.cumple && o.en_alcance) {
+      if (o?.afectado) {
         const colorMira = o.aliado ? "#ffdc79" : "#ff7b69";
         contexto.strokeStyle = colorMira;
         contexto.lineWidth = 2;
@@ -1243,14 +1265,17 @@
     const alcance =
       u.id === seleccionado
         ? "es el atacante: no se ataca a sí mismo"
-        : o.en_alcance
+        : !o.seleccionado
+          ? "no es el objetivo elegido"
+          : o.en_alcance
           ? "en alcance"
           : "fuera de alcance";
     t.replaceChildren(
       nodo("h3", "", `${u.id} · ${nombres[u.tipo]}`),
       nodo("p", "", `${o.cumple ? "Cumple" : "No cumple"} la fórmula · ${alcance}`),
+      nodo("p", "", `Constantes: objetivo = ${o.constantes.objetivo}; yo = ${o.constantes.yo}.`),
     );
-    if (o.cumple && o.en_alcance && o.cantidad !== undefined) {
+    if (o.afectado && o.cantidad !== undefined) {
       t.append(
         nodo(
           "p",
@@ -1343,7 +1368,7 @@
     [" = ", "Igualdad"],
     ["(", "Abrir paréntesis"],
     [")", "Cerrar paréntesis"],
-    ["x", "Variable objetivo"],
+    ["objetivo", "Constante: soldado objetivo"],
     ["y", "Variable cuantificada"],
     ["yo", "Unidad atacante"],
   ].forEach(([texto, titulo]) => {
@@ -1372,7 +1397,7 @@
     const b = nodo("button", "", p);
     b.type = "button";
     b.title = titulo;
-    b.addEventListener("click", () => insertar(`${p}(${p === "Cerca" || p === "Alineado" ? "x,y" : "x"})`));
+    b.addEventListener("click", () => insertar(`${p}(${p === "Cerca" || p === "Alineado" ? "objetivo,yo" : "objetivo"})`));
     $("predicados").append(b);
   });
   document
@@ -1388,11 +1413,15 @@
     iniciarDesdeMenu();
   });
   $("formula").addEventListener("input", entradaFormula);
+  $("objetivo-ataque").addEventListener("change", () => {
+    invalidarPrevisualizacion();
+    programarPrevisualizacion();
+  });
   $("abrir-editor").addEventListener("click", () => {
     editorAbierto = true;
     $("formula").focus();
     if (!$("formula").value) {
-      $("formula").value = unidad()?.tipo === "Medico" ? "Mio(x)" : "Enemigo(x)";
+      $("formula").value = unidad()?.tipo === "Medico" ? "Mio(objetivo)" : "Enemigo(objetivo)";
     }
     programarPrevisualizacion();
   });
@@ -1401,6 +1430,7 @@
       realizar("atacar", {
         atacante: seleccionado,
         formula: $("formula").value.trim(),
+        objetivo: $("objetivo-ataque").value || undefined,
       });
     }
   });

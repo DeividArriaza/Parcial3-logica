@@ -160,7 +160,8 @@ def api_juego_previsualizar():
         estado = _campo_juego(datos, "estado", dict)
         atacante = _campo_juego(datos, "atacante", str)
         formula = _campo_juego(datos, "formula", str, requerido=False, defecto="")
-        return _respuesta_juego(previsualizar, estado, atacante, formula)
+        objetivo = _campo_juego(datos, "objetivo", str, requerido=False)
+        return _respuesta_juego(previsualizar, estado, atacante, formula, objetivo)
     except ErrorValidacion as e:
         return jsonify(ok=False, errores=_errores("peticion", e)), 400
 
@@ -175,7 +176,8 @@ def api_juego_atacar():
         estado = _campo_juego(datos, "estado", dict)
         atacante = _campo_juego(datos, "atacante", str)
         formula = _campo_juego(datos, "formula", str, requerido=False, defecto="")
-        return _respuesta_juego(atacar, estado, atacante, formula)
+        objetivo = _campo_juego(datos, "objetivo", str, requerido=False)
+        return _respuesta_juego(atacar, estado, atacante, formula, objetivo)
     except ErrorValidacion as e:
         return jsonify(ok=False, errores=_errores("peticion", e)), 400
 

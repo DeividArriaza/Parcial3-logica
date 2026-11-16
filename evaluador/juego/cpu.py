@@ -10,12 +10,12 @@ from .tipos import CONFIG_TIPOS
 def _plantillas(atacante: dict) -> list[str]:
     """Propone fórmulas legibles de daño o de curación."""
     if atacante["tipo"] == "Medico":
-        return ["(Mio(x) & Herido(x))", "Mio(x)",
-                "(Herido(x) & (Mio(x) | Enemigo(x)))"]
+        return ["(Mio(objetivo) & Herido(objetivo))", "Mio(objetivo)",
+                "(Herido(objetivo) & (Mio(objetivo) | Enemigo(objetivo)))"]
     return [
-        "Enemigo(x)", "(Enemigo(x) & Herido(x))",
-        "(Enemigo(x) & exists y (Cerca(x,y) & Mio(y)))",
-        "(Enemigo(x) & forall y (Mio(y) -> Alineado(x,y)))",
+        "Enemigo(objetivo)", "(Enemigo(objetivo) & Herido(objetivo))",
+        "(Enemigo(objetivo) & exists y (Cerca(objetivo,y) & Mio(y)))",
+        "(Enemigo(objetivo) & forall y (Mio(y) -> Alineado(objetivo,y)))",
     ]
 
 

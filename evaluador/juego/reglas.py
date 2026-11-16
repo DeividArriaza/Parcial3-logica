@@ -44,10 +44,10 @@ def _precision(cantidad: int) -> int:
     return {1: 2, 2: 1}.get(cantidad, 0)
 
 
-def previsualizar(estado: dict, atacante_id: str, texto: str) -> dict:
+def previsualizar(estado: dict, atacante_id: str, texto: str, objetivo_id=None) -> dict:
     """Valida y anticipa el ataque sin gastar energía ni modificar el estado."""
     atacante = _atacante(estado, atacante_id)
-    ast, costo, objetivos, afectados = _evaluar_objetivos(estado, atacante, texto)
+    ast, costo, objetivos, afectados = _evaluar_objetivos(estado, atacante, texto, objetivo_id)
     _exigir_energia(estado, atacante["bando"], costo)
     detalle = _detalle(estado, atacante["bando"])
     bonus = _precision(len(afectados))
@@ -72,17 +72,18 @@ def previsualizar(estado: dict, atacante_id: str, texto: str) -> dict:
     }
 
 
-def atacar(estado: dict, atacante_id: str, texto: str) -> dict:
+def atacar(estado: dict, atacante_id: str, texto: str, objetivo_id=None) -> dict:
     """Ejecuta un ataque y decide la victoria o el resultado exacto del reto."""
     estado = deepcopy(estado)
     atacante = _atacante(estado, atacante_id)
-    ast, costo, objetivos, afectados = _evaluar_objetivos(estado, atacante, texto)
+    ast, costo, objetivos, afectados = _evaluar_objetivos(estado, atacante, texto, objetivo_id)
     exigir_concepto(estado, ast)
     bando = atacante["bando"]
     _exigir_energia(estado, bando, costo)
     estado["energia"][bando] -= costo
     atacante["ataco"] = True
-    eventos = [{"tipo": "ataque", "atacante": atacante_id, "formula": texto, "costo": costo}]
+    eventos = [{"tipo": "ataque", "atacante": atacante_id, "formula": texto,
+                "objetivo": objetivo_id, "costo": costo}]
     resultado = {}
     if estado["modo"] == "tutorial":
         from .tutorial import retroalimentacion

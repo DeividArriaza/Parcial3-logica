@@ -25,6 +25,34 @@ python app.py                   # http://localhost:8765
 
 **Pruebas:** `python -m unittest -v tests.test_evaluador`
 
+## Batalla Lógica
+
+Abre `http://localhost:8765/juego` o pulsa **Batalla Lógica** en el evaluador.
+El enlace **← Evaluador** permite volver a la aplicación original.
+
+1. Selecciona un soldado de tu equipo y pulsa **Preparar ataque**.
+2. Elige el soldado objetivo en el selector.
+3. Escribe una **fórmula cerrada**, revisa la previsualización y ejecuta el ataque.
+
+`objetivo` y `yo` son constantes de aridad cero: nombran al objetivo elegido y al
+atacante. Por ejemplo, `(Enemigo(objetivo) ∧ Arquero(objetivo))` permite atacar al
+objetivo cuando es un arquero enemigo. `∃y (Mio(y) ∧ Cerca(objetivo,y))` comprueba
+si tiene algún vecino de tu equipo. Las variables `y` y `z` deben quedar ligadas
+por un cuantificador; `Enemigo(x)` y `Cerca(objetivo,y)` se rechazan por tener
+variables libres. No se completa la fórmula mediante asignaciones implícitas.
+
+En **Todos** y en el tutorial se realiza una comprobación independiente por soldado:
+la interpretación de la constante `objetivo` nombra al soldado de esa comprobación.
+La fórmula sigue cerrada en todas esas interpretaciones. Solo reciben el efecto
+los soldados seleccionados cuya comprobación es verdadera y que están en alcance.
+El tutorial conserva sus nueve lecciones, con ejemplos, pistas y soluciones cerradas.
+
+Pruebas del proyecto completo dentro de Docker desde PowerShell:
+
+```powershell
+docker compose run --rm --no-deps --volume "${PWD}/tests:/app/tests:ro" evaluador python -m unittest discover -s tests
+```
+
 ## Estructura
 
 | Archivo | Responsabilidad | Requisito |

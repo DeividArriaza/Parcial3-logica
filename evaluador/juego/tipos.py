@@ -9,7 +9,7 @@ CONFIG_TIPOS = {
 }
 COSTO_BASE, COSTO_CONECTIVO, COSTO_CUANTIFICADOR = 1, 1, 2
 ENERGIA_INICIAL, ENERGIA_POR_TURNO, ENERGIA_MAXIMA = 10, 6, 15
-LENGUAJE = Lenguaje(funciones={"yo": 0}, predicados={"Mio": 1, "Enemigo": 1, "Herido": 1, "Infante": 1,
+LENGUAJE = Lenguaje(funciones={"yo": 0, "objetivo": 0}, predicados={"Mio": 1, "Enemigo": 1, "Herido": 1, "Infante": 1,
                                 "Arquero": 1, "Medico": 1, "Tanque": 1, "EnAgua": 1,
                                 "Cerca": 2, "Alineado": 2})
 
