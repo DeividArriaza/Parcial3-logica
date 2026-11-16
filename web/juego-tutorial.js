@@ -460,6 +460,10 @@ window.InstructorBatalla = (() => {
 
     async comprobar() {
       if (!this.activo || this.paso.tipo !== "practica" || this.procesando || this.puente.ocupado()) return;
+      if ($("formula").value.includes("___")) {
+        this.mostrarFeedback({ mensaje: "Todavía hay un hueco ___ sin completar. Reemplázalo y vuelve a comprobar." });
+        return;
+      }
       const generacion = this.generacion;
       this.procesando = true;
       this.actualizarControles();

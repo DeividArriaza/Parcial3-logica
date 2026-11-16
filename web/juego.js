@@ -180,6 +180,7 @@
     seleccionado = atacante;
     editorAbierto = true;
     $("formula").value = normalizar(formula);
+    seleccionarHueco($("formula"));
     invalidarPrevisualizacion();
     renderizarSeleccion();
     controles();
@@ -657,8 +658,39 @@
       .replace(/\|/g, "∨");
   }
 
-  function entradaFormula() {
+  // Huecos ___ de las plantillas del tutorial: lo que se escribe o se pulsa los reemplaza.
+  const HUECO = "___";
+
+  function seleccionarHueco(campo, desde = 0) {
+    let i = campo.value.indexOf(HUECO, desde);
+    if (i < 0) i = campo.value.indexOf(HUECO);
+    if (i >= 0) campo.setSelectionRange(i, i + HUECO.length);
+    return i >= 0;
+  }
+
+  // Rango que cubre la selección y el hueco que toca, o null si no toca ninguno.
+  function huecoEnCursor(campo) {
+    const { value, selectionStart: inicio, selectionEnd: fin } = campo;
+    for (let i = value.indexOf(HUECO); i >= 0; i = value.indexOf(HUECO, i + 1)) {
+      if (inicio <= i + HUECO.length && fin >= i) return [Math.min(i, inicio), Math.max(i + HUECO.length, fin)];
+    }
+    return null;
+  }
+
+  // Si se escribió pegado a un hueco (el cursor estaba junto a él), el hueco sobra.
+  function quitarHuecoVecino(campo, largo) {
+    const fin = campo.selectionStart;
+    const inicio = fin - largo;
+    if (campo.value.slice(fin, fin + HUECO.length) === HUECO) {
+      campo.setRangeText("", fin, fin + HUECO.length, "preserve");
+    } else if (inicio >= HUECO.length && campo.value.slice(inicio - HUECO.length, inicio) === HUECO) {
+      campo.setRangeText("", inicio - HUECO.length, inicio, "preserve");
+    }
+  }
+
+  function entradaFormula(e) {
     const campo = $("formula");
+    if (e?.inputType?.startsWith("insert") && e.data) quitarHuecoVecino(campo, e.data.length);
     const inicio = campo.selectionStart;
     const fin = campo.selectionEnd;
     const original = campo.value;
@@ -673,9 +705,12 @@
     if (ocupado || instructor.procesando || instructor.escribiendo) {
       return;
     }
-    campo.setRangeText(texto, campo.selectionStart, campo.selectionEnd, "end");
+    const hueco = huecoEnCursor(campo);
+    if (hueco) campo.setRangeText(texto.trim(), ...hueco, "end");
+    else campo.setRangeText(texto, campo.selectionStart, campo.selectionEnd, "end");
     campo.focus();
     entradaFormula();
+    if (hueco) seleccionarHueco(campo, campo.selectionEnd);
   }
 
   function programarPrevisualizacion() {
@@ -1416,6 +1451,12 @@
   $("objetivo-ataque").addEventListener("change", () => {
     invalidarPrevisualizacion();
     programarPrevisualizacion();
+  });
+  // Un clic junto a un hueco lo selecciona entero, para que lo escrito lo reemplace.
+  $("formula").addEventListener("click", () => {
+    const campo = $("formula");
+    const hueco = campo.selectionStart === campo.selectionEnd && huecoEnCursor(campo);
+    if (hueco) campo.setSelectionRange(...hueco);
   });
   $("abrir-editor").addEventListener("click", () => {
     editorAbierto = true;

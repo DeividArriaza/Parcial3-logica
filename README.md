@@ -2,7 +2,7 @@
 
 Aplicación web que decide si una fórmula de primer orden es **Verdadera** o **Falsa** en una interpretación finita y explica las razones decisivas.
 
-**Equipo:** David Lopez · Carlos Lopez · Natanael
+**Equipo:** David Lopez · Carlos Lopez · Natanael Giron
 
 ## Cómo ejecutarla
 
