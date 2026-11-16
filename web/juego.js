@@ -174,6 +174,7 @@
   function mostrarLectura(texto) {
     $("lectura-formula").textContent = texto ? `En español: ${texto}` : "";
     $("lectura-formula").hidden = !texto;
+    $("lectura-formula-detalle").hidden = !texto;
   }
 
   function prepararFormulaGuiada(formula, atacante) {
@@ -378,6 +379,22 @@
       selector.value = teniaGrupo ? "" : candidatos.some((u) => u.id === anterior) ? anterior
         : candidatos.find((u) => unidad()?.tipo === "Medico" ? u.bando === estado.turno : u.bando !== estado.turno)?.id || candidatos[0]?.id || "";
     }
+    const equipos = $("equipos-tablero");
+    equipos.replaceChildren();
+    const leccion = niveles.find((n) => n.id === estado.nivel);
+    const paso = leccion?.pasos?.[estado.paso_tutorial ?? leccion.pasos.length - 1];
+    const metas = new Set(["practica", "reto"].includes(paso?.tipo) ? paso.objetivo : []);
+    for (const rival of [true, false]) {
+      const fila = nodo("div", rival ? "equipo-rival" : "equipo-aliado");
+      fila.append(nodo("strong", "", rival ? "Rivales" : "Tu equipo"));
+      for (const u of estado.unidades.filter((u) => (u.bando !== estado.turno) === rival)) {
+        const ficha = nodo("span", `ficha-soldado${metas.has(u.id) ? " es-meta" : ""}`,
+          `${metas.has(u.id) ? "★ " : ""}${u.id} · ${nombres[u.tipo]}${u.id === seleccionado ? " · Atacante" : ""}`);
+        fila.append(ficha);
+      }
+      equipos.append(fila);
+    }
+    if (metas.size) equipos.append(nodo("p", "guia-meta", "★ La fórmula debe elegir solo a los soldados con estrella."));
     $("turno-numero").textContent = `Ronda ${Math.ceil(estado.numero_turno / 2)}`;
     $("bando-turno").textContent = nombres[estado.turno];
     $("bando-turno").classList.toggle("rojo", estado.turno === "rojo");
@@ -1166,8 +1183,10 @@
       contexto.fillRect(x + 17, y + 4, 46, 5);
       contexto.fillStyle = v.bando === "azul" ? "#80d5e9" : "#ffa284";
       contexto.fillRect(x + 17, y + 4, (46 * Math.max(0, v.vida)) / v.vida_max, 5);
-      contexto.fillStyle = "#eef6df";
-      contexto.font = "10px Consolas,monospace";
+      contexto.fillStyle = "#0e171f";
+      contexto.fillRect(x + 20, y + 62, 40, 18);
+      contexto.fillStyle = v.bando === estado.turno ? "#a9e4ff" : "#ffb4a7";
+      contexto.font = "bold 15px Consolas,monospace";
       contexto.textAlign = "center";
       contexto.fillText(v.id, x + 40, y + 78);
       contexto.textAlign = "left";

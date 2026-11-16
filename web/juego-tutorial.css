@@ -138,8 +138,8 @@
 .objetivo-guiado,
 .feedback-guiado p,
 .pistas-guiadas {
-  font-size: 15px;
-  line-height: 1.75;
+  font-size: 19px;
+  line-height: 1.55;
   overflow-wrap: anywhere;
 }
 
@@ -295,12 +295,40 @@
 
 .tutorial-guiado .editor .ayuda,
 .tutorial-guiado .editor #ayuda-formula {
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .tutorial-guiado .editor label {
-  font-size: 11px;
+  font-size: 17px;
 }
+
+.tutorial-guiado #selector-objetivo,
+.tutorial-guiado .instructor-etapas,
+.tutorial-guiado .avatar-instructor,
+.tutorial-guiado .instructor-cabecera .ceja,
+.tutorial-guiado #instructor-tipo,
+.tutorial-guiado .coordenadas {
+  display: none;
+}
+
+.tutorial-guiado #instructor-titulo { font-size: 29px; }
+.tutorial-guiado .instructor-cabecera { margin-bottom: 12px; }
+.tutorial-guiado .instructor-cabecera p,
+.tutorial-guiado #instructor-contador { font-size: 16px; }
+.tutorial-guiado .editor textarea { font-size: 19px; line-height: 1.5; }
+.tutorial-guiado .teclado button { font-size: 16px; min-height: 38px; height: auto; padding: 7px 10px; }
+.tutorial-guiado .instructor button { font-size: 16px; min-height: 44px; }
+.tutorial-guiado .resultado-preview,
+.tutorial-guiado .lectura-formula,
+.tutorial-guiado #instructor-formula { font-size: 17px; line-height: 1.5; }
+.tutorial-guiado .resultado-preview { max-height: none; }
+.tutorial-guiado .comentarios-unidades summary,
+.tutorial-guiado #instructor-tabla summary,
+.tutorial-guiado .ejemplo-guiado summary,
+.tutorial-guiado #lectura-formula-detalle summary { font-size: 17px; cursor: pointer; padding-block: 12px; }
+.tutorial-guiado .comentario-unidad p,
+.tutorial-guiado .comentario-unidad strong { font-size: 17px; }
+.tutorial-guiado .tabla-verdad { font-size: 16px; }
 
 .burbujas-tutorial {
   position: absolute;

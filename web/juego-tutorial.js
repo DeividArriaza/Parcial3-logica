@@ -191,6 +191,7 @@ window.InstructorBatalla = (() => {
       $("editor").hidden = false;
       this.destinoEditor.append($("editor"));
       $("atacar").hidden = false;
+      $("formula").previousElementSibling.textContent = "2 · ESCRIBE UNA FÓRMULA CERRADA";
       document.querySelectorAll("#teclado button, #predicados button").forEach((boton) => {
         boton.hidden = false;
       });
@@ -263,21 +264,23 @@ window.InstructorBatalla = (() => {
       $("instructor-tipo").textContent = nombresPaso[paso.tipo] || "Paso de la lección";
       $("instructor-titulo").textContent = paso.titulo || nombresPaso[paso.tipo];
       const textos = {
-        ejemplo: "Mira la fórmula. Revisaremos cada soldado y veremos por qué entra o queda fuera del ataque.",
-        practica: "Completa los huecos ___ en el editor y pulsa Comprobar. Puedes probar sin gastar energía.",
-        reto: "Ahora escribe tu propia fórmula. Esta vez lanzarás un ataque real: elige exactamente los objetivos.",
+        ejemplo: "Mira qué soldados cumplen esta fórmula.",
+        practica: paso.plantilla ? "Completa ___ y pulsa Comprobar. Puedes volver a intentar." : "Escribe la fórmula y pulsa Comprobar.",
+        reto: "Escribe una fórmula que elija solo a los soldados marcados ★.",
       };
       $("instructor-texto").textContent = paso.texto || textos[paso.tipo] || "";
       $("instructor-ejemplo").hidden = paso.tipo !== "ejemplo";
       $("instructor-formula").textContent = "";
       $("instructor-lectura").textContent = "";
       $("instructor-comentarios").replaceChildren();
+      $("instructor-comentarios").hidden = true;
+      $("instructor-comentarios").open = false;
       $("instructor-feedback").hidden = true;
       $("instructor-pistas").replaceChildren();
       $("instructor-objetivo").hidden = !["practica", "reto"].includes(paso.tipo);
       const objetivos = paso.objetivo;
       $("instructor-objetivo").textContent = Array.isArray(objetivos)
-        ? `Tu objetivo: incluye exactamente a ${objetivos.join(", ")}.`
+        ? `★ Elige solo a ${objetivos.join(", ")}.`
         : objetivos || this.leccion.objetivo || "";
       $("editor").hidden = !["practica", "reto"].includes(paso.tipo);
       $("atacar").hidden = paso.tipo !== "reto";
@@ -285,6 +288,7 @@ window.InstructorBatalla = (() => {
       $("instructor-pista").hidden = !["practica", "reto"].includes(paso.tipo);
       $("instructor-respuesta").hidden = paso.tipo !== "practica";
       $("instructor-reintentar").hidden = paso.tipo !== "reto" || !this.fallo;
+      $("formula").previousElementSibling.textContent = "Tu fórmula";
       this.mostrarSimbolo(paso.simbolo);
       this.mostrarTabla(paso.tabla_verdad || (paso.tipo === "explicacion" && this.leccion.tabla_verdad));
       for (let i = 0; i < this.registro.pistas; i++) this.agregarPista(i);
@@ -314,7 +318,8 @@ window.InstructorBatalla = (() => {
     mostrarTabla(filas) {
       const contenedor = $("instructor-tabla");
       contenedor.hidden = !Array.isArray(filas);
-      contenedor.replaceChildren();
+      contenedor.open = false;
+      contenedor.replaceChildren(elemento("summary", "Ver tabla de verdad"));
       if (!Array.isArray(filas)) return;
       const tabla = elemento("table", "", "tabla-verdad");
       tabla.append(elemento("caption", this.paso.tabla_titulo || this.leccion.tabla_titulo || "Tabla de verdad"));
@@ -343,12 +348,7 @@ window.InstructorBatalla = (() => {
       this.escribiendo = true;
       this.actualizarControles();
       const formula = this.paso.formula || "";
-      const reducir = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      for (let i = reducir ? formula.length : 1; i <= formula.length; i++) {
-        if (generacion !== this.generacion) return;
-        $("instructor-formula").textContent = formula.slice(0, i);
-        if (!reducir) await new Promise((resolver) => setTimeout(resolver, 24));
-      }
+      $("instructor-formula").textContent = formula;
       if (generacion !== this.generacion) return;
       this.escribiendo = false;
       this.procesando = true;
@@ -380,7 +380,8 @@ window.InstructorBatalla = (() => {
     }
 
     mostrarComentarios(objetivos) {
-      $("instructor-comentarios").replaceChildren();
+      $("instructor-comentarios").replaceChildren(elemento("summary", "¿Por qué cumplen la fórmula?"));
+      $("instructor-comentarios").hidden = false;
       this.burbujas.replaceChildren();
       for (const id of (this.paso.comentar || []).slice(0, 2)) {
         const objetivo = objetivos.find((o) => o.id === id);
@@ -401,9 +402,6 @@ window.InstructorBatalla = (() => {
           tarjeta.append(detalle);
         }
         $("instructor-comentarios").append(tarjeta);
-        const burbuja = elemento("div", `${id}: ${razon}`, "burbuja-unidad");
-        burbuja.dataset.unidad = id;
-        this.burbujas.append(burbuja);
       }
       this.posicionarBurbujas();
     }
@@ -509,7 +507,9 @@ window.InstructorBatalla = (() => {
       panel.hidden = false;
       panel.classList.toggle("acierto", respuesta.acierto === true);
       panel.replaceChildren(elemento("strong", respuesta.acierto ? "¡Lo tienes!" : "Vamos a revisarlo"));
-      panel.append(elemento("p", respuesta.mensaje || "Compara los soldados elegidos con tu objetivo."));
+      panel.append(elemento("p", respuesta.sobran?.length || respuesta.faltan?.length
+        ? "Ajusta la fórmula para elegir solo las estrellas."
+        : respuesta.mensaje || "Compara tu selección con las estrellas."));
       this.marcas.clear();
       for (const id of respuesta.sobran || []) this.marcas.set(id, "sobra");
       for (const id of respuesta.faltan || []) this.marcas.set(id, "falta");
@@ -528,7 +528,7 @@ window.InstructorBatalla = (() => {
 
     agregarPista(indice) {
       const pista = this.pistasDisponibles()[indice];
-      if (pista) $("instructor-pistas").append(elemento("li", typeof pista === "string" ? pista : pista.texto));
+      if (pista) $("instructor-pistas").replaceChildren(elemento("li", typeof pista === "string" ? pista : pista.texto));
     }
 
     revelarPista() {
@@ -593,6 +593,7 @@ window.InstructorBatalla = (() => {
       document.querySelectorAll("#teclado button").forEach((boton) => {
         const simbolo = boton.textContent;
         boton.hidden = ["¬", "∧", "∨", "→", "∀", "∃", "=", "yo"].includes(simbolo) && !permitidos.has(simbolo);
+        if (simbolo === "y") boton.hidden = !permitidos.has("∃") && !permitidos.has("∀");
       });
       if (!this.permiteAtaque) $("atacar").disabled = true;
     }
@@ -600,6 +601,20 @@ window.InstructorBatalla = (() => {
     // Las marcas usan las posiciones iniciales, incluso si un fallo eliminó una unidad.
     dibujar(contexto, tamano, tiempo) {
       if (!this.activo) return;
+      if (["practica", "reto"].includes(this.paso.tipo)) {
+        for (const id of this.paso.objetivo || []) {
+          const unidad = this.unidadesIniciales.find((u) => u.id === id);
+          if (!unidad) continue;
+          contexto.save();
+          contexto.strokeStyle = "#ffe08a";
+          contexto.lineWidth = 4;
+          contexto.strokeRect(unidad.col * tamano + 3, unidad.fila * tamano + 3, tamano - 6, tamano - 6);
+          contexto.fillStyle = "#ffe08a";
+          contexto.font = "bold 22px sans-serif";
+          contexto.fillText("★", unidad.col * tamano + 4, unidad.fila * tamano + 25);
+          contexto.restore();
+        }
+      }
       const reducir = matchMedia("(prefers-reduced-motion: reduce)").matches;
       for (const [id, marca] of this.marcas) {
         const unidad = this.unidadesIniciales.find((u) => u.id === id);

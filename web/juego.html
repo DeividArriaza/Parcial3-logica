@@ -157,6 +157,7 @@
               <div class="coordenadas">
                 <span>← ↑ ↓ → + Enter para jugar con teclado</span><span>CLIC · SELECCIONAR / MOVER</span>
               </div>
+              <div id="equipos-tablero" class="equipos-tablero" aria-label="Equipos y objetivos"></div>
             </div>
             <div id="mensaje" class="mensaje" role="status" aria-live="polite">
               Selecciona una unidad para comenzar.
@@ -182,13 +183,13 @@
               <h2 id="instructor-titulo" tabindex="-1"></h2>
               <p id="instructor-texto"></p>
               <div id="instructor-simbolo" class="tarjeta-simbolo" hidden></div>
-              <div id="instructor-tabla" hidden></div>
+              <details id="instructor-tabla" hidden></details>
               <div id="instructor-ejemplo" class="ejemplo-guiado" hidden>
                 <span class="micro">MIRA CÓMO SE FORMA</span>
                 <pre id="instructor-formula" aria-label="Fórmula de ejemplo"></pre>
-                <p id="instructor-lectura"></p>
+                <details><summary>Leer en palabras</summary><p id="instructor-lectura"></p></details>
               </div>
-              <div id="instructor-comentarios" class="comentarios-unidades"></div>
+              <details id="instructor-comentarios" class="comentarios-unidades" hidden></details>
               <p id="instructor-objetivo" class="objetivo-guiado"></p>
               <div id="instructor-feedback" class="feedback-guiado" role="status" aria-live="polite" hidden></div>
               <ol id="instructor-pistas" class="pistas-guiadas"></ol>
@@ -213,9 +214,11 @@
                 <h2 id="titulo-editor">Orden de ataque</h2>
                 <span id="costo" class="costo">⚡ —</span>
               </div>
+              <div id="selector-objetivo">
               <label for="objetivo-ataque">1 · ELIGE EL OBJETIVO</label>
               <select id="objetivo-ataque" aria-describedby="ayuda-objetivo"></select>
               <p id="ayuda-objetivo" class="ayuda">objetivo es una constante que nombra al soldado elegido; yo nombra al atacante. En el tutorial se comprueba el grupo completo.</p>
+              </div>
               <label for="formula">2 · ESCRIBE UNA FÓRMULA CERRADA</label
               ><textarea
                 id="formula"
@@ -225,18 +228,21 @@
                 placeholder="Enemigo(objetivo)"
                 aria-describedby="errores-formula ayuda-formula"
               ></textarea>
-              <p id="lectura-formula" class="lectura-formula" aria-live="polite" hidden></p>
+              <details id="lectura-formula-detalle" hidden><summary>Leer en palabras</summary>
+              <p id="lectura-formula" class="lectura-formula" aria-live="polite" hidden></p></details>
               <div id="formula-error-marca" class="formula-error-marca" hidden></div>
               <div id="teclado" class="teclado" aria-label="Símbolos lógicos"></div>
               <details class="predicados" open>
                 <summary>Predicados del campo</summary>
                 <div id="predicados" class="teclado"></div>
               </details>
+              <details class="ayuda-editor"><summary>Cómo escribir la fórmula</summary>
               <p id="ayuda-formula" class="ayuda">
                 Sin variables libres: usa objetivo y yo como constantes. Liga y o z con ∃ o ∀.
                 Binarias entre paréntesis: (Enemigo(objetivo) ∧ Herido(objetivo)). Acepta ~, !, &amp;, /\, |, \/, -&gt;, =&gt;,
                 forall, exists.
               </p>
+              </details>
               <ul id="errores-formula" class="errores" aria-live="polite"></ul>
               <div id="resultado-preview" class="resultado-preview" role="status">
                 Selecciona una unidad y escribe una fórmula.
